@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Sketch Duel: Human vs AI</title>
+  <link rel="stylesheet" href="tailwind.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <style>
+    body { background: radial-gradient(1200px 600px at 50% -10%, #2a1050 0%, #0b0716 60%, #05030b 100%); }
+    .glow-pink { text-shadow: 0 0 12px #ff3cac, 0 0 32px #ff3cac80; }
+    .glow-cyan { text-shadow: 0 0 12px #2de2e6, 0 0 32px #2de2e680; }
+    .panel { background: rgba(20, 12, 40, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 0 0 1px rgba(45,226,230,.08), 0 20px 60px -20px rgba(0,0,0,.8); }
+    #board { touch-action: none; cursor: crosshair; }
+    .scan::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+      background: repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 3px); }
+    @keyframes pop { 0% { transform: scale(.6); opacity: 0 } 60% { transform: scale(1.08); opacity: 1 } 100% { transform: scale(1) } }
+    .pop { animation: pop .45s cubic-bezier(.2,.9,.3,1.3) both; }
+    @keyframes shake { 0%,100% { transform: translateX(0) } 25% { transform: translateX(-6px) } 75% { transform: translateX(6px) } }
+    .shake { animation: shake .3s ease 2; }
+    .bar { transition: width .25s ease; }
+  </style>
+</head>
+<body class="min-h-screen text-slate-100 font-body antialiased">
+  <div class="max-w-6xl mx-auto px-4 py-5 sm:py-8">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between gap-3 mb-5">
+      <h1 class="font-arcade text-sm sm:text-lg leading-relaxed">
+        <span class="text-neon-pink glow-pink">SKETCH</span> <span class="text-neon-cyan glow-cyan">DUEL</span>
+        <span class="hidden sm:inline text-slate-400 text-[10px] ml-2">HUMAN vs AI</span>
+      </h1>
+      <div class="flex items-center gap-2 sm:gap-4 font-arcade text-[10px] sm:text-xs">
+        <div id="hudRound" class="px-3 py-2 rounded-lg panel hidden">RND <span id="roundNum">1</span>/5</div>
+        <div id="hudScore" class="px-3 py-2 rounded-lg panel hidden">PTS <span id="score" class="text-neon-amber">0</span></div>
+        <button id="muteBtn" class="px-3 py-2 rounded-lg panel hover:border-neon-cyan" title="Toggle sound">🔊</button>
+      </div>
+    </header>
+
+    <!-- Start screen -->
+    <section id="startScreen" class="panel rounded-2xl p-6 sm:p-10 text-center relative scan">
+      <p class="font-arcade text-neon-cyan text-[10px] sm:text-xs mb-4 tracking-widest">A REAL-TIME DRAWING DUEL</p>
+      <h2 class="font-arcade text-2xl sm:text-4xl leading-snug mb-6"><span class="text-neon-pink glow-pink">HUMAN</span> <span class="text-slate-500">vs</span> <span class="text-neon-cyan glow-cyan">AI</span></h2>
+      <p class="max-w-xl mx-auto text-slate-300 mb-8">Can you draw fast enough, and clearly enough, for a neural network to recognize it? You get <b>5 rounds</b> and <b>20 seconds</b> per sketch.</p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl mx-auto mb-8 text-left">
+        <div class="panel rounded-xl p-4"><div class="font-arcade text-neon-amber text-xs mb-2">1</div><div class="font-semibold">Prompt</div><div class="text-sm text-slate-400">Get a random object</div></div>
+        <div class="panel rounded-xl p-4"><div class="font-arcade text-neon-amber text-xs mb-2">2</div><div class="font-semibold">Sketch</div><div class="text-sm text-slate-400">20 seconds on the clock</div></div>
+        <div class="panel rounded-xl p-4"><div class="font-arcade text-neon-amber text-xs mb-2">3</div><div class="font-semibold">AI guesses</div><div class="text-sm text-slate-400">Live top-3 predictions</div></div>
+        <div class="panel rounded-xl p-4"><div class="font-arcade text-neon-amber text-xs mb-2">4</div><div class="font-semibold">Score</div><div class="text-sm text-slate-400">Faster = more points</div></div>
+      </div>
+      <button id="startBtn" class="font-arcade text-sm px-8 py-4 rounded-xl bg-neon-pink text-black hover:brightness-110 active:scale-95 transition shadow-[0_0_30px_#ff3cac80] disabled:opacity-40" disabled>LOADING AI…</button>
+      <p id="modelInfo" class="text-xs text-slate-500 mt-4"></p>
+    </section>
+
+    <!-- Game screen -->
+    <section id="gameScreen" class="hidden">
+      <div class="panel rounded-2xl p-4 sm:p-5 mb-4">
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <div class="text-[10px] font-arcade text-slate-400 mb-2">DRAW THIS</div>
+            <div id="prompt" class="font-arcade text-xl sm:text-3xl text-neon-amber">CAT</div>
+          </div>
+          <div class="text-right">
+            <div class="text-[10px] font-arcade text-slate-400 mb-2">TIME</div>
+            <div id="timeLeft" class="font-arcade text-xl sm:text-3xl tabular-nums">20.0</div>
+          </div>
+        </div>
+        <div class="h-3 rounded-full bg-white/10 overflow-hidden">
+          <div id="timerBar" class="h-full w-full rounded-full bg-gradient-to-r from-neon-lime via-neon-amber to-neon-pink"></div>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-[1fr_320px] gap-4">
+        <div class="panel rounded-2xl p-3 relative">
+          <canvas id="board" class="w-full aspect-square sm:aspect-[4/3] rounded-xl bg-[#f6f3ff] block"></canvas>
+          <div id="overlay" class="hidden absolute inset-3 rounded-xl flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div class="text-center pop">
+              <div id="overlayTitle" class="font-arcade text-2xl sm:text-4xl mb-3">MATCH!</div>
+              <div id="overlaySub" class="text-slate-200 mb-5"></div>
+              <button id="nextBtn" class="font-arcade text-xs px-6 py-3 rounded-xl bg-neon-cyan text-black hover:brightness-110 active:scale-95 transition">NEXT ROUND ▶</button>
+            </div>
+          </div>
+          <div class="flex gap-2 mt-3">
+            <button id="clearBtn" class="flex-1 font-arcade text-[10px] py-3 rounded-lg panel hover:border-neon-pink">CLEAR</button>
+            <button id="undoBtn" class="flex-1 font-arcade text-[10px] py-3 rounded-lg panel hover:border-neon-cyan">UNDO</button>
+            <button id="skipBtn" class="flex-1 font-arcade text-[10px] py-3 rounded-lg panel hover:border-neon-amber">SKIP</button>
+          </div>
+        </div>
+
+        <aside class="panel rounded-2xl p-5 relative scan">
+          <div class="flex items-center justify-between mb-4">
+            <div class="font-arcade text-xs text-neon-cyan">AI VISION</div>
+            <div id="aiStatus" class="text-xs text-slate-400 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-slate-500" id="aiDot"></span><span id="aiStatusText">waiting</span></div>
+          </div>
+          <div id="aiThought" class="text-lg font-semibold mb-4 min-h-[56px]">Start drawing…</div>
+          <ol id="guesses" class="space-y-3"></ol>
+          <div class="mt-5 pt-4 border-t border-white/10">
+            <div class="flex items-center gap-3">
+              <canvas id="aiEye" width="28" height="28" class="w-16 h-16 rounded-md bg-black [image-rendering:pixelated]"></canvas>
+              <p class="text-xs text-slate-400 leading-relaxed">What the CNN sees: your sketch cropped and shrunk to 28×28 pixels. Match at <span id="thresholdLabel">70</span>% confidence.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- Summary screen -->
+    <section id="summaryScreen" class="hidden panel rounded-2xl p-6 sm:p-10 relative scan">
+      <div class="text-center mb-8">
+        <div class="font-arcade text-[10px] sm:text-xs text-slate-400 mb-3">FINAL SCORE</div>
+        <div id="finalScore" class="font-arcade text-4xl sm:text-6xl text-neon-amber mb-4 pop">0</div>
+        <div class="font-arcade text-[10px] text-slate-400 mb-2">RANK</div>
+        <div id="finalRank" class="font-arcade text-lg sm:text-2xl text-neon-pink glow-pink"></div>
+        <p id="rankHint" class="text-sm text-slate-400 mt-3"></p>
+      </div>
+      <div class="grid grid-cols-3 gap-3 max-w-xl mx-auto mb-8 text-center">
+        <div class="panel rounded-xl p-3"><div id="statMatched" class="font-arcade text-lg text-neon-lime">0/5</div><div class="text-xs text-slate-400 mt-1">recognized</div></div>
+        <div class="panel rounded-xl p-3"><div id="statAvg" class="font-arcade text-lg text-neon-cyan">–</div><div class="text-xs text-slate-400 mt-1">avg. time</div></div>
+        <div class="panel rounded-xl p-3"><div id="statBest" class="font-arcade text-lg text-neon-amber">–</div><div class="text-xs text-slate-400 mt-1">fastest</div></div>
+      </div>
+      <div id="roundCards" class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8"></div>
+      <div class="text-center">
+        <button id="againBtn" class="font-arcade text-sm px-8 py-4 rounded-xl bg-neon-pink text-black hover:brightness-110 active:scale-95 transition shadow-[0_0_30px_#ff3cac80]">PLAY AGAIN</button>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-slate-600 mt-8">CNN trained on Google's Quick, Draw! dataset · runs entirely in your browser</footer>
+  </div>
+
+  <script src="model.js"></script>
+  <script src="cnn.js"></script>
+  <script src="audio.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

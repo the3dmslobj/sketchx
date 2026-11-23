@@ -1,0 +1,13 @@
+{
+  "name": "sketch-duel",
+  "private": true,
+  "description": "Sketch Duel: Human vs AI. A real-time drawing game against a CNN.",
+  "scripts": {
+    "build:css": "tailwindcss -i src/input.css -o public/tailwind.css --minify",
+    "watch:css": "tailwindcss -i src/input.css -o public/tailwind.css --watch",
+    "start": "python3 -m http.server 8000 --directory public"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}
