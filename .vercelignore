@@ -1,0 +1,8 @@
+# Only the site, the API functions and their package files are deployed.
+data/
+training/
+node_modules/
+.claude/
+dev-server.mjs
+*.md
+.DS_Store

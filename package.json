@@ -1,13 +1,20 @@
 {
-  "name": "sketch-duel",
+  "name": "sketchx",
   "private": true,
-  "description": "Sketch Duel: Human vs AI. A real-time drawing game against a CNN.",
+  "description": "sketchX: a real-time drawing game against a CNN.",
   "scripts": {
-    "build:css": "tailwindcss -i src/input.css -o public/tailwind.css --minify",
-    "watch:css": "tailwindcss -i src/input.css -o public/tailwind.css --watch",
-    "start": "python3 -m http.server 8000 --directory public"
+    "dev": "node dev-server.mjs",
+    "build:css": "tailwindcss -c tailwind.config.cjs -i src/input.css -o public/tailwind.css --minify",
+    "watch:css": "tailwindcss -c tailwind.config.cjs -i src/input.css -o public/tailwind.css --watch"
   },
   "devDependencies": {
     "tailwindcss": "3.4.17"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.41.0"
   }
 }
