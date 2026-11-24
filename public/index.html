@@ -1,131 +1,208 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Sketch Duel: Human vs AI</title>
+  <title>sketchX</title>
   <link rel="stylesheet" href="tailwind.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    body { background: radial-gradient(1200px 600px at 50% -10%, #2a1050 0%, #0b0716 60%, #05030b 100%); }
-    .glow-pink { text-shadow: 0 0 12px #ff3cac, 0 0 32px #ff3cac80; }
-    .glow-cyan { text-shadow: 0 0 12px #2de2e6, 0 0 32px #2de2e680; }
-    .panel { background: rgba(20, 12, 40, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 0 0 1px rgba(45,226,230,.08), 0 20px 60px -20px rgba(0,0,0,.8); }
     #board { touch-action: none; cursor: crosshair; }
-    .scan::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
-      background: repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 3px); }
-    @keyframes pop { 0% { transform: scale(.6); opacity: 0 } 60% { transform: scale(1.08); opacity: 1 } 100% { transform: scale(1) } }
-    .pop { animation: pop .45s cubic-bezier(.2,.9,.3,1.3) both; }
-    @keyframes shake { 0%,100% { transform: translateX(0) } 25% { transform: translateX(-6px) } 75% { transform: translateX(6px) } }
-    .shake { animation: shake .3s ease 2; }
+    @keyframes pop { from { transform: translateY(4px); opacity: 0 } to { transform: none; opacity: 1 } }
+    .pop { animation: pop .3s ease-out both; }
+    @keyframes shake { 0%,100% { transform: translateX(0) } 25% { transform: translateX(-4px) } 75% { transform: translateX(4px) } }
+    .shake { animation: shake .25s ease 2; }
     .bar { transition: width .25s ease; }
   </style>
 </head>
-<body class="min-h-screen text-slate-100 font-body antialiased">
-  <div class="max-w-6xl mx-auto px-4 py-5 sm:py-8">
+<body class="min-h-screen bg-neutral-50 text-neutral-900 font-sans antialiased">
+  <div class="max-w-5xl mx-auto px-5 py-6 sm:py-10">
 
     <!-- Header -->
-    <header class="flex items-center justify-between gap-3 mb-5">
-      <h1 class="font-arcade text-sm sm:text-lg leading-relaxed">
-        <span class="text-neon-pink glow-pink">SKETCH</span> <span class="text-neon-cyan glow-cyan">DUEL</span>
-        <span class="hidden sm:inline text-slate-400 text-[10px] ml-2">HUMAN vs AI</span>
-      </h1>
-      <div class="flex items-center gap-2 sm:gap-4 font-arcade text-[10px] sm:text-xs">
-        <div id="hudRound" class="px-3 py-2 rounded-lg panel hidden">RND <span id="roundNum">1</span>/5</div>
-        <div id="hudScore" class="px-3 py-2 rounded-lg panel hidden">PTS <span id="score" class="text-neon-amber">0</span></div>
-        <button id="muteBtn" class="px-3 py-2 rounded-lg panel hover:border-neon-cyan" title="Toggle sound">🔊</button>
+    <header class="flex items-center justify-between gap-3 mb-8">
+      <h1 class="text-lg font-semibold tracking-tight">sketch<span class="text-neutral-400">X</span></h1>
+      <div class="flex items-center gap-5 text-sm text-neutral-500">
+        <div id="hudRound" class="hidden"><span id="hudLevel">Normal</span> · Round <span id="roundNum" class="text-neutral-900 font-medium tabular-nums">1</span>/5</div>
+        <div id="hudScore" class="hidden"><span id="score" class="text-neutral-900 font-medium tabular-nums">0</span> pts</div>
+        <button id="muteBtn" class="w-8 h-8 -mr-1.5 grid place-items-center rounded-md hover:bg-neutral-200/60 hover:text-neutral-900 transition" title="Toggle sound" aria-label="Toggle sound"></button>
       </div>
     </header>
 
     <!-- Start screen -->
-    <section id="startScreen" class="panel rounded-2xl p-6 sm:p-10 text-center relative scan">
-      <p class="font-arcade text-neon-cyan text-[10px] sm:text-xs mb-4 tracking-widest">A REAL-TIME DRAWING DUEL</p>
-      <h2 class="font-arcade text-2xl sm:text-4xl leading-snug mb-6"><span class="text-neon-pink glow-pink">HUMAN</span> <span class="text-slate-500">vs</span> <span class="text-neon-cyan glow-cyan">AI</span></h2>
-      <p class="max-w-xl mx-auto text-slate-300 mb-8">Can you draw fast enough, and clearly enough, for a neural network to recognize it? You get <b>5 rounds</b> and <b>20 seconds</b> per sketch.</p>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl mx-auto mb-8 text-left">
-        <div class="panel rounded-xl p-4"><div class="font-arcade text-neon-amber text-xs mb-2">1</div><div class="font-semibold">Prompt</div><div class="text-sm text-slate-400">Get a random object</div></div>
-        <div class="panel rounded-xl p-4"><div class="font-arcade text-neon-amber text-xs mb-2">2</div><div class="font-semibold">Sketch</div><div class="text-sm text-slate-400">20 seconds on the clock</div></div>
-        <div class="panel rounded-xl p-4"><div class="font-arcade text-neon-amber text-xs mb-2">3</div><div class="font-semibold">AI guesses</div><div class="text-sm text-slate-400">Live top-3 predictions</div></div>
-        <div class="panel rounded-xl p-4"><div class="font-arcade text-neon-amber text-xs mb-2">4</div><div class="font-semibold">Score</div><div class="text-sm text-slate-400">Faster = more points</div></div>
+    <section id="startScreen" class="py-10 sm:py-16 text-center">
+      <h2 class="text-4xl sm:text-5xl font-semibold tracking-tight mb-4">Draw it. Let the AI guess.</h2>
+      <p class="max-w-md mx-auto text-neutral-500 mb-10">5 prompts against the clock. A neural network watches every stroke and calls it the moment it's sure.</p>
+      <div class="max-w-[240px] mx-auto mb-6">
+        <label for="nameInput" class="sr-only">Your name</label>
+        <input id="nameInput" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Your name" class="w-full text-center text-sm px-3 py-2.5 rounded-lg border border-neutral-200 bg-white placeholder:text-neutral-400 focus:outline-none focus:border-neutral-400 transition" />
+        <p id="nameHint" class="text-xs text-neutral-400 mt-1.5">Shown on leaderboards and in rooms</p>
       </div>
-      <button id="startBtn" class="font-arcade text-sm px-8 py-4 rounded-xl bg-neon-pink text-black hover:brightness-110 active:scale-95 transition shadow-[0_0_30px_#ff3cac80] disabled:opacity-40" disabled>LOADING AI…</button>
-      <p id="modelInfo" class="text-xs text-slate-500 mt-4"></p>
+      <div role="group" aria-label="Difficulty" class="inline-flex p-1 rounded-lg bg-neutral-200/70 text-sm mb-2">
+        <button data-level="easy" class="px-4 py-1.5 rounded-md font-medium transition">Easy</button>
+        <button data-level="normal" class="px-4 py-1.5 rounded-md font-medium transition">Normal</button>
+        <button data-level="hard" class="px-4 py-1.5 rounded-md font-medium transition">Hard</button>
+      </div>
+      <p id="levelHint" class="text-xs text-neutral-400 mb-8"></p>
+      <div class="flex flex-wrap justify-center gap-2">
+        <button id="startBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 active:scale-[.98] transition disabled:opacity-40" disabled>Loading model…</button>
+        <button id="dailyBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 active:scale-[.98] transition disabled:opacity-40" disabled>Daily challenge</button>
+        <button id="roomBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 active:scale-[.98] transition disabled:opacity-40" disabled>Play with friends</button>
+      </div>
+      <button id="boardBtn" class="text-sm text-neutral-500 hover:text-neutral-900 underline underline-offset-4 decoration-neutral-300 transition mt-5">Leaderboard</button>
+      <p id="modelInfo" class="text-xs text-neutral-400 mt-4"></p>
+      <ol class="grid grid-cols-2 sm:grid-cols-4 gap-px max-w-2xl mx-auto mt-16 text-left bg-neutral-200 border border-neutral-200 rounded-xl overflow-hidden">
+        <li class="bg-white p-4"><div class="text-xs text-neutral-400 mb-1">01</div><div class="text-sm font-medium">Prompt</div><div class="text-xs text-neutral-500">A random object</div></li>
+        <li class="bg-white p-4"><div class="text-xs text-neutral-400 mb-1">02</div><div class="text-sm font-medium">Sketch</div><div class="text-xs text-neutral-500">15–25 seconds</div></li>
+        <li class="bg-white p-4"><div class="text-xs text-neutral-400 mb-1">03</div><div class="text-sm font-medium">AI guesses</div><div class="text-xs text-neutral-500">Live top 3</div></li>
+        <li class="bg-white p-4"><div class="text-xs text-neutral-400 mb-1">04</div><div class="text-sm font-medium">Score</div><div class="text-xs text-neutral-500">Faster = more points</div></li>
+      </ol>
+    </section>
+
+    <!-- Rooms: create / join, then the lobby -->
+    <section id="roomScreen" class="hidden max-w-md mx-auto py-6">
+      <button class="backBtn text-sm text-neutral-500 hover:text-neutral-900 transition mb-6">← Back</button>
+      <div id="roomJoin">
+        <h2 class="text-2xl font-semibold tracking-tight mb-1">Play with friends</h2>
+        <p class="text-sm text-neutral-500 mb-6">Everyone draws the same prompts at the same time, with a live ranking.</p>
+        <div class="rounded-xl border border-neutral-200 bg-white p-5 mb-3">
+          <div class="text-sm font-medium">Create a room</div>
+          <div class="text-xs text-neutral-500 mb-4">Difficulty: <span id="roomCreateLevel">Normal</span> (change it on the start screen)</div>
+          <button id="createRoomBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 active:scale-[.98] transition disabled:opacity-40">Create room</button>
+        </div>
+        <div class="rounded-xl border border-neutral-200 bg-white p-5">
+          <label for="codeInput" class="text-sm font-medium">Join a room</label>
+          <div class="flex gap-2 mt-3">
+            <input id="codeInput" maxlength="4" autocomplete="off" spellcheck="false" placeholder="CODE" class="w-28 text-center uppercase tracking-[.3em] text-sm px-3 py-2.5 rounded-lg border border-neutral-200 placeholder:text-neutral-300 focus:outline-none focus:border-neutral-400 transition" />
+            <button id="joinRoomBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 active:scale-[.98] transition disabled:opacity-40">Join</button>
+          </div>
+        </div>
+        <p id="roomError" class="text-sm text-red-600 mt-3 min-h-[1.25rem]"></p>
+      </div>
+      <div id="roomLobby" class="hidden">
+        <div class="text-xs text-neutral-400 mb-1">Room code</div>
+        <div class="flex items-center gap-3 mb-1">
+          <div id="lobbyCode" class="text-5xl font-semibold tracking-[.15em] tabular-nums">ABCD</div>
+          <button id="copyLinkBtn" class="text-xs px-3 py-1.5 rounded-md border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100 transition">Copy invite link</button>
+        </div>
+        <div id="lobbyLevel" class="text-sm text-neutral-500 mb-6"></div>
+        <ol id="lobbyPlayers" class="rounded-xl border border-neutral-200 bg-white divide-y divide-neutral-100 mb-6"></ol>
+        <div class="flex items-center gap-3">
+          <button id="startRoomBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 active:scale-[.98] transition disabled:opacity-40">Start game</button>
+          <p id="lobbyWait" class="text-sm text-neutral-500">Waiting for the host to start…</p>
+          <button id="leaveRoomBtn" class="ml-auto text-sm text-neutral-500 hover:text-neutral-900 transition">Leave room</button>
+        </div>
+        <p id="lobbyError" class="text-sm text-red-600 mt-3 min-h-[1.25rem]"></p>
+      </div>
+    </section>
+
+    <!-- Leaderboard -->
+    <section id="boardScreen" class="hidden max-w-md mx-auto py-6">
+      <button class="backBtn text-sm text-neutral-500 hover:text-neutral-900 transition mb-6">← Back</button>
+      <h2 class="text-2xl font-semibold tracking-tight mb-5">Leaderboard</h2>
+      <div class="flex flex-wrap gap-2 mb-5">
+        <div role="group" aria-label="Board" class="inline-flex p-1 rounded-lg bg-neutral-200/70 text-sm">
+          <button data-board="daily" class="px-3 py-1.5 rounded-md font-medium transition">Today's challenge</button>
+          <button data-board="all" class="px-3 py-1.5 rounded-md font-medium transition">All time</button>
+        </div>
+        <div role="group" aria-label="Difficulty" class="inline-flex p-1 rounded-lg bg-neutral-200/70 text-sm">
+          <button data-board-level="easy" class="px-3 py-1.5 rounded-md font-medium transition">Easy</button>
+          <button data-board-level="normal" class="px-3 py-1.5 rounded-md font-medium transition">Normal</button>
+          <button data-board-level="hard" class="px-3 py-1.5 rounded-md font-medium transition">Hard</button>
+        </div>
+      </div>
+      <ol id="boardList" class="rounded-xl border border-neutral-200 bg-white divide-y divide-neutral-100"></ol>
+      <p id="boardNote" class="text-xs text-neutral-400 mt-3"></p>
     </section>
 
     <!-- Game screen -->
     <section id="gameScreen" class="hidden">
-      <div class="panel rounded-2xl p-4 sm:p-5 mb-4">
-        <div class="flex items-center justify-between gap-3 mb-3">
-          <div>
-            <div class="text-[10px] font-arcade text-slate-400 mb-2">DRAW THIS</div>
-            <div id="prompt" class="font-arcade text-xl sm:text-3xl text-neon-amber">CAT</div>
-          </div>
-          <div class="text-right">
-            <div class="text-[10px] font-arcade text-slate-400 mb-2">TIME</div>
-            <div id="timeLeft" class="font-arcade text-xl sm:text-3xl tabular-nums">20.0</div>
-          </div>
+      <div class="flex items-end justify-between gap-3 mb-3">
+        <div>
+          <div class="text-xs text-neutral-400 mb-1">Draw</div>
+          <div id="prompt" class="text-2xl sm:text-3xl font-semibold tracking-tight">Cat</div>
         </div>
-        <div class="h-3 rounded-full bg-white/10 overflow-hidden">
-          <div id="timerBar" class="h-full w-full rounded-full bg-gradient-to-r from-neon-lime via-neon-amber to-neon-pink"></div>
-        </div>
+        <div id="timeLeft" class="text-2xl sm:text-3xl font-medium tabular-nums">20.0</div>
+      </div>
+      <div class="h-1 rounded-full bg-neutral-200 overflow-hidden mb-5">
+        <div id="timerBar" class="h-full w-full bg-neutral-900"></div>
       </div>
 
-      <div class="grid lg:grid-cols-[1fr_320px] gap-4">
-        <div class="panel rounded-2xl p-3 relative">
-          <canvas id="board" class="w-full aspect-square sm:aspect-[4/3] rounded-xl bg-[#f6f3ff] block"></canvas>
-          <div id="overlay" class="hidden absolute inset-3 rounded-xl flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div class="text-center pop">
-              <div id="overlayTitle" class="font-arcade text-2xl sm:text-4xl mb-3">MATCH!</div>
-              <div id="overlaySub" class="text-slate-200 mb-5"></div>
-              <button id="nextBtn" class="font-arcade text-xs px-6 py-3 rounded-xl bg-neon-cyan text-black hover:brightness-110 active:scale-95 transition">NEXT ROUND ▶</button>
+      <div class="grid lg:grid-cols-[1fr_280px] gap-5">
+        <div>
+          <div class="relative">
+            <canvas id="board" class="w-full aspect-square sm:aspect-[4/3] rounded-xl bg-white border border-neutral-200 block"></canvas>
+            <div id="countdown" class="hidden absolute inset-0 rounded-xl flex flex-col items-center justify-center bg-white/90">
+              <div class="text-xs text-neutral-400 mb-2">Starting in</div>
+              <div id="countdownNum" class="text-7xl font-semibold tabular-nums">3</div>
+              <div id="countdownFirst" class="text-sm text-neutral-500 mt-3"></div>
+            </div>
+            <div id="overlay" class="hidden absolute inset-0 rounded-xl flex items-center justify-center bg-white/85 backdrop-blur-sm">
+              <div class="text-center pop px-6">
+                <div id="overlayTitle" class="text-3xl font-semibold tracking-tight mb-2">Match</div>
+                <div id="overlaySub" class="text-sm text-neutral-500 mb-6"></div>
+                <button id="nextBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 active:scale-[.98] transition">Next round</button>
+              </div>
             </div>
           </div>
           <div class="flex gap-2 mt-3">
-            <button id="clearBtn" class="flex-1 font-arcade text-[10px] py-3 rounded-lg panel hover:border-neon-pink">CLEAR</button>
-            <button id="undoBtn" class="flex-1 font-arcade text-[10px] py-3 rounded-lg panel hover:border-neon-cyan">UNDO</button>
-            <button id="skipBtn" class="flex-1 font-arcade text-[10px] py-3 rounded-lg panel hover:border-neon-amber">SKIP</button>
+            <button id="undoBtn" class="text-sm px-4 py-2 rounded-lg text-neutral-600 border border-neutral-200 bg-white hover:bg-neutral-100 transition">Undo</button>
+            <button id="clearBtn" class="text-sm px-4 py-2 rounded-lg text-neutral-600 border border-neutral-200 bg-white hover:bg-neutral-100 transition">Clear</button>
+            <button id="skipBtn" class="ml-auto text-sm px-4 py-2 rounded-lg text-neutral-500 hover:text-neutral-900 transition">Skip</button>
           </div>
         </div>
 
-        <aside class="panel rounded-2xl p-5 relative scan">
-          <div class="flex items-center justify-between mb-4">
-            <div class="font-arcade text-xs text-neon-cyan">AI VISION</div>
-            <div id="aiStatus" class="text-xs text-slate-400 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-slate-500" id="aiDot"></span><span id="aiStatusText">waiting</span></div>
+        <aside>
+          <div class="flex items-center justify-between mb-3">
+            <div class="text-xs text-neutral-400">AI</div>
+            <div class="text-xs text-neutral-400 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-neutral-300" id="aiDot"></span><span id="aiStatusText">waiting</span></div>
           </div>
-          <div id="aiThought" class="text-lg font-semibold mb-4 min-h-[56px]">Start drawing…</div>
+          <div id="aiThought" class="text-base font-medium mb-5 min-h-[48px]">Start drawing…</div>
           <ol id="guesses" class="space-y-3"></ol>
-          <div class="mt-5 pt-4 border-t border-white/10">
-            <div class="flex items-center gap-3">
-              <canvas id="aiEye" width="28" height="28" class="w-16 h-16 rounded-md bg-black [image-rendering:pixelated]"></canvas>
-              <p class="text-xs text-slate-400 leading-relaxed">What the CNN sees: your sketch cropped and shrunk to 28×28 pixels. Match at <span id="thresholdLabel">70</span>% confidence.</p>
+          <div class="mt-6 pt-5 border-t border-neutral-200 flex items-center gap-3">
+            <canvas id="aiEye" width="28" height="28" class="w-14 h-14 rounded-md bg-white border border-neutral-200 [image-rendering:pixelated]"></canvas>
+            <p class="text-xs text-neutral-400 leading-relaxed">What the model sees: your sketch at 28×28. Match at <span id="thresholdLabel">70</span>% confidence.</p>
+          </div>
+          <div id="roomPanel" class="hidden mt-6 pt-5 border-t border-neutral-200">
+            <div class="flex items-center justify-between mb-3">
+              <div class="text-xs text-neutral-400">Room <span id="roomPanelCode" class="text-neutral-900 font-medium"></span></div>
+              <button id="roomPanelLeave" class="text-xs text-neutral-400 hover:text-neutral-900 transition">Leave</button>
             </div>
+            <ol id="roomPanelList" class="space-y-2 text-sm"></ol>
           </div>
         </aside>
       </div>
     </section>
 
     <!-- Summary screen -->
-    <section id="summaryScreen" class="hidden panel rounded-2xl p-6 sm:p-10 relative scan">
-      <div class="text-center mb-8">
-        <div class="font-arcade text-[10px] sm:text-xs text-slate-400 mb-3">FINAL SCORE</div>
-        <div id="finalScore" class="font-arcade text-4xl sm:text-6xl text-neon-amber mb-4 pop">0</div>
-        <div class="font-arcade text-[10px] text-slate-400 mb-2">RANK</div>
-        <div id="finalRank" class="font-arcade text-lg sm:text-2xl text-neon-pink glow-pink"></div>
-        <p id="rankHint" class="text-sm text-slate-400 mt-3"></p>
+    <section id="summaryScreen" class="hidden py-6">
+      <div class="text-center mb-10">
+        <div class="text-xs text-neutral-400 mb-2">Final score · <span id="summaryLevel">Normal</span></div>
+        <div id="finalScore" class="text-6xl font-semibold tracking-tight tabular-nums mb-3 pop">0</div>
+        <div id="finalRank" class="text-lg font-medium"></div>
+        <p id="rankHint" class="text-sm text-neutral-500 mt-1"></p>
       </div>
-      <div class="grid grid-cols-3 gap-3 max-w-xl mx-auto mb-8 text-center">
-        <div class="panel rounded-xl p-3"><div id="statMatched" class="font-arcade text-lg text-neon-lime">0/5</div><div class="text-xs text-slate-400 mt-1">recognized</div></div>
-        <div class="panel rounded-xl p-3"><div id="statAvg" class="font-arcade text-lg text-neon-cyan">–</div><div class="text-xs text-slate-400 mt-1">avg. time</div></div>
-        <div class="panel rounded-xl p-3"><div id="statBest" class="font-arcade text-lg text-neon-amber">–</div><div class="text-xs text-slate-400 mt-1">fastest</div></div>
+      <div class="grid grid-cols-3 max-w-md mx-auto mb-10 text-center divide-x divide-neutral-200">
+        <div><div id="statMatched" class="text-xl font-medium tabular-nums">0/5</div><div class="text-xs text-neutral-400 mt-1">recognized</div></div>
+        <div><div id="statAvg" class="text-xl font-medium tabular-nums">–</div><div class="text-xs text-neutral-400 mt-1">avg. time</div></div>
+        <div><div id="statBest" class="text-xl font-medium tabular-nums">–</div><div class="text-xs text-neutral-400 mt-1">fastest</div></div>
       </div>
-      <div id="roundCards" class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8"></div>
-      <div class="text-center">
-        <button id="againBtn" class="font-arcade text-sm px-8 py-4 rounded-xl bg-neon-pink text-black hover:brightness-110 active:scale-95 transition shadow-[0_0_30px_#ff3cac80]">PLAY AGAIN</button>
+      <div id="summaryOnline" class="hidden max-w-md mx-auto mb-10">
+        <div class="flex items-baseline justify-between gap-3 mb-2">
+          <div id="summaryOnlineTitle" class="text-sm font-medium"></div>
+          <div id="summaryOnlineNote" class="text-xs text-neutral-500 text-right"></div>
+        </div>
+        <ol id="summaryOnlineList" class="rounded-xl border border-neutral-200 bg-white divide-y divide-neutral-100"></ol>
       </div>
+      <div id="roundCards" class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-10"></div>
+      <div class="flex flex-wrap justify-center items-center gap-2">
+        <button id="againBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 active:scale-[.98] transition disabled:opacity-40">Play again</button>
+        <button id="homeBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 active:scale-[.98] transition disabled:opacity-40">Home</button>
+      </div>
+      <p id="summaryWait" class="hidden text-center text-sm text-neutral-500 mt-3">Waiting for the host to start the next game…</p>
     </section>
 
-    <footer class="text-center text-xs text-slate-600 mt-8">CNN trained on Google's Quick, Draw! dataset · runs entirely in your browser</footer>
+    <footer class="text-center text-xs text-neutral-400 mt-12">Trained on Google's Quick, Draw! dataset · the AI runs entirely in your browser</footer>
   </div>
 
   <script src="model.js"></script>
