@@ -73,7 +73,7 @@ their last activity; daily leaderboards after 3 days.
 | Drawing | HTML5 Canvas with Pointer Events (mouse, touch, pen) |
 | AI | 3-layer CNN (about 690k parameters, float16 weights) that recognizes 150 objects, run in pure JavaScript (`public/cnn.js`) |
 | Sound | Web Audio API oscillators (`public/audio.js`), no audio files |
-| Styling | Tailwind CSS (prebuilt `public/tailwind.css`), clean minimal light theme |
+| Styling | Tailwind CSS (prebuilt `public/tailwind.css`), refined dark theme, Geist type, Phosphor icons |
 | Online | Vercel Functions (`api/`) + Upstash Redis; local `dev-server.mjs` with an in-memory store |
 
 **Each round:** prompt → 15 to 25 s sketch (depending on the level) → live AI predictions → points. There are 5 rounds per game.
