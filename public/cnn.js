@@ -1,41 +1,57 @@
-// Tiny dependency-free CNN inference engine for the Sketch Duel model.
-// Architecture (must match training/train.py):
-//   conv3x3(1→32) → ReLU → maxpool2   28→14
-//   conv3x3(32→64) → ReLU → maxpool2  14→7
-//   conv3x3(64→128) → ReLU → maxpool2 7→3
-//   dense(1152→128) → ReLU → dense(128→N) → softmax
+// Tiny dependency-free CNN inference engine for the sketchX model.
+// Architecture (must match training/train.py; channel widths come from the weight shapes):
+//   conv3x3(1→C1) → ReLU → maxpool2   28→14
+//   conv3x3(C1→C2) → ReLU → maxpool2  14→7
+//   conv3x3(C2→C3) → ReLU → maxpool2  7→3
+//   dense(C3·9→H) → ReLU → dense(H→N) → softmax
 (function () {
-  function decode(b64) {
-    const bin = atob(b64);
+  // IEEE 754 half → float.
+  function halfToFloat(h) {
+    const s = h & 0x8000 ? -1 : 1, e = (h >> 10) & 0x1f, f = h & 0x3ff;
+    if (e === 0) return s * f * 2 ** -24;
+    if (e === 31) return f ? NaN : s * Infinity;
+    return s * (1 + f / 1024) * 2 ** (e - 15);
+  }
+
+  function decode(layer) {
+    const bin = atob(layer.data);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return new Float32Array(bytes.buffer);
+    if (layer.dtype !== "f16") return new Float32Array(bytes.buffer);
+    const half = new Uint16Array(bytes.buffer), out = new Float32Array(half.length);
+    for (let i = 0; i < half.length; i++) out[i] = halfToFloat(half[i]);
+    return out;
   }
 
   // input: Float32Array [cin*h*w]; weights [cout, cin, 3, 3]; padding 1. Applies ReLU.
+  // im2col: lay out every 3×3 input patch once, then each output channel is a run of
+  // long, contiguous multiply-adds, which V8 handles far faster than nested short loops.
   function conv3x3Relu(input, cin, h, w, weight, bias, cout) {
-    const out = new Float32Array(cout * h * w);
-    for (let o = 0; o < cout; o++) {
-      const ob = o * h * w;
-      for (let i = 0; i < cin; i++) {
-        const ib = i * h * w;
-        const wb = (o * cin + i) * 9;
-        for (let ky = 0; ky < 3; ky++) {
-          for (let kx = 0; kx < 3; kx++) {
-            const k = weight[wb + ky * 3 + kx];
-            if (k === 0) continue;
-            const dy = ky - 1, dx = kx - 1;
-            const y0 = Math.max(0, -dy), y1 = Math.min(h, h - dy);
-            const x0 = Math.max(0, -dx), x1 = Math.min(w, w - dx);
-            for (let y = y0; y < y1; y++) {
-              const orow = ob + y * w, irow = ib + (y + dy) * w + dx;
-              for (let x = x0; x < x1; x++) out[orow + x] += k * input[irow + x];
-            }
+    const hw = h * w, K = cin * 9;
+    const col = new Float32Array(K * hw);
+    for (let i = 0; i < cin; i++) {
+      for (let ky = 0; ky < 3; ky++) {
+        for (let kx = 0; kx < 3; kx++) {
+          const cb = (i * 9 + ky * 3 + kx) * hw, dy = ky - 1, dx = kx - 1;
+          const x0 = Math.max(0, -dx), x1 = Math.min(w, w - dx);
+          for (let y = Math.max(0, -dy), y1 = Math.min(h, h - dy); y < y1; y++) {
+            const crow = cb + y * w, irow = i * hw + (y + dy) * w + dx;
+            for (let x = x0; x < x1; x++) col[crow + x] = input[irow + x];
           }
         }
       }
-      const b = bias[o];
-      for (let p = ob; p < ob + h * w; p++) out[p] = Math.max(0, out[p] + b);
+    }
+    const out = new Float32Array(cout * hw);
+    for (let o = 0; o < cout; o++) {
+      const ob = o * hw, wb = o * K;
+      out.fill(bias[o], ob, ob + hw);
+      for (let j = 0; j < K; j++) {
+        const k = weight[wb + j];
+        if (k === 0) continue;
+        const cb = j * hw;
+        for (let p = 0; p < hw; p++) out[ob + p] += k * col[cb + p];
+      }
+      for (let p = ob; p < ob + hw; p++) if (out[p] < 0) out[p] = 0;
     }
     return out;
   }
@@ -77,20 +93,24 @@
     constructor(model) {
       this.classes = model.classes;
       this.w = {};
-      for (const [k, v] of Object.entries(model.layers)) this.w[k] = decode(v.data);
+      for (const [k, v] of Object.entries(model.layers)) this.w[k] = decode(v);
     }
 
     // pixels: Float32Array(784), 0 = background, 1 = ink. Returns [{label, p}] sorted.
-    predict(pixels) {
+    // temperature > 1 divides the logits before softmax, which tempers the model's
+    // overconfidence on bare shapes (a lone arc otherwise reads as "rainbow 99%").
+    predict(pixels, temperature = 1) {
       const w = this.w;
-      let x = conv3x3Relu(pixels, 1, 28, 28, w["c1.weight"], w["c1.bias"], 32);
-      x = maxPool2(x, 32, 28, 28);
-      x = conv3x3Relu(x, 32, 14, 14, w["c2.weight"], w["c2.bias"], 64);
-      x = maxPool2(x, 64, 14, 14);
-      x = conv3x3Relu(x, 64, 7, 7, w["c3.weight"], w["c3.bias"], 128);
-      x = maxPool2(x, 128, 7, 7);
-      x = dense(x, w["f1.weight"], w["f1.bias"], 128, true);
+      const c1 = w["c1.bias"].length, c2 = w["c2.bias"].length, c3 = w["c3.bias"].length;
+      let x = conv3x3Relu(pixels, 1, 28, 28, w["c1.weight"], w["c1.bias"], c1);
+      x = maxPool2(x, c1, 28, 28);
+      x = conv3x3Relu(x, c1, 14, 14, w["c2.weight"], w["c2.bias"], c2);
+      x = maxPool2(x, c2, 14, 14);
+      x = conv3x3Relu(x, c2, 7, 7, w["c3.weight"], w["c3.bias"], c3);
+      x = maxPool2(x, c3, 7, 7);
+      x = dense(x, w["f1.weight"], w["f1.bias"], w["f1.bias"].length, true);
       x = dense(x, w["f2.weight"], w["f2.bias"], this.classes.length, false);
+      if (temperature !== 1) for (let i = 0; i < x.length; i++) x[i] /= temperature;
       return softmax(x)
         .map((p, i) => ({ label: this.classes[i], p }))
         .sort((a, b) => b.p - a.p);
