@@ -1,209 +1,415 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="bg-ink-950">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#09090b" />
   <title>sketchX</title>
-  <link rel="stylesheet" href="tailwind.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>
-    #board { touch-action: none; cursor: crosshair; }
-    @keyframes pop { from { transform: translateY(4px); opacity: 0 } to { transform: none; opacity: 1 } }
-    .pop { animation: pop .3s ease-out both; }
-    @keyframes shake { 0%,100% { transform: translateX(0) } 25% { transform: translateX(-4px) } 75% { transform: translateX(4px) } }
-    .shake { animation: shake .25s ease 2; }
-    .bar { transition: width .25s ease; }
-  </style>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.2/src/regular/style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.2/src/fill/style.css" />
+  <link rel="stylesheet" href="tailwind.css" />
 </head>
-<body class="min-h-screen bg-neutral-50 text-neutral-900 font-sans antialiased">
-  <div class="max-w-5xl mx-auto px-5 py-6 sm:py-10">
+<body class="min-h-dvh">
 
-    <!-- Header -->
-    <header class="flex items-center justify-between gap-3 mb-8">
-      <h1 class="text-lg font-semibold tracking-tight">sketch<span class="text-neutral-400">X</span></h1>
-      <div class="flex items-center gap-5 text-sm text-neutral-500">
-        <div id="hudRound" class="hidden"><span id="hudLevel">Normal</span> · Round <span id="roundNum" class="text-neutral-900 font-medium tabular-nums">1</span>/5</div>
-        <div id="hudScore" class="hidden"><span id="score" class="text-neutral-900 font-medium tabular-nums">0</span> pts</div>
-        <button id="muteBtn" class="w-8 h-8 -mr-1.5 grid place-items-center rounded-md hover:bg-neutral-200/60 hover:text-neutral-900 transition" title="Toggle sound" aria-label="Toggle sound"></button>
+  <!-- ============ App shell (menu views) ============ -->
+  <div id="shell">
+
+    <!-- Desktop rail -->
+    <nav id="rail" aria-label="Main" class="hidden lg:flex fixed inset-y-0 left-0 z-20 w-60 flex-col border-r border-white/[.06] bg-ink-950 px-3 py-5">
+      <a href="./" class="flex items-center gap-2.5 px-3 mb-8 group" aria-label="sketchX home">
+        <span class="grid place-items-center w-7 h-7 rounded-lg bg-zinc-100 text-zinc-950"><i class="ph-fill ph-scribble text-[16px]"></i></span>
+        <span class="text-[15px] font-semibold tracking-tight">sketch<span class="text-zinc-500">X</span></span>
+      </a>
+      <div class="flex flex-col gap-0.5">
+        <button class="nav-item" data-nav="play"><i class="ph ph-play-circle" data-icon="play-circle"></i>Play</button>
+        <button class="nav-item" data-nav="daily"><i class="ph ph-calendar-dots" data-icon="calendar-dots"></i>Daily</button>
+        <button class="nav-item" data-nav="friends"><i class="ph ph-users-three" data-icon="users-three"></i>Friends<span class="room-dot hidden ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400"></span></button>
+        <button class="nav-item" data-nav="board"><i class="ph ph-trophy" data-icon="trophy"></i>Leaderboard</button>
+      </div>
+      <div class="mt-auto flex items-center gap-1 pt-4 border-t border-white/[.06]">
+        <button class="name-chip flex-1 min-w-0 flex items-center gap-2.5 h-10 px-2 rounded-lg hover:bg-white/[.04] transition text-left">
+          <span class="name-avatar avatar"></span>
+          <span class="min-w-0">
+            <span class="name-label block truncate text-[13px] font-medium"></span>
+            <span class="block text-[11px] text-zinc-500">Edit name</span>
+          </span>
+        </button>
+        <button class="mute-btn icon-btn" title="Toggle sound" aria-label="Toggle sound"><i class="ph ph-speaker-high"></i></button>
+      </div>
+    </nav>
+
+    <!-- Mobile header -->
+    <header class="lg:hidden sticky top-0 z-20 flex items-center justify-between h-14 px-4 bg-ink-950/85 backdrop-blur-md border-b border-white/[.06]">
+      <a href="./" class="flex items-center gap-2" aria-label="sketchX home">
+        <span class="grid place-items-center w-7 h-7 rounded-lg bg-zinc-100 text-zinc-950"><i class="ph-fill ph-scribble text-[16px]"></i></span>
+        <span class="text-[15px] font-semibold tracking-tight">sketch<span class="text-zinc-500">X</span></span>
+      </a>
+      <div class="flex items-center gap-1">
+        <button class="name-chip flex items-center gap-2 h-9 pl-1 pr-2.5 rounded-full border border-white/[.08] bg-white/[.03]">
+          <span class="name-avatar avatar !w-6 !h-6 !text-[10px]"></span>
+          <span class="name-label max-w-[110px] truncate text-[13px] font-medium"></span>
+        </button>
+        <button class="mute-btn icon-btn" title="Toggle sound" aria-label="Toggle sound"><i class="ph ph-speaker-high"></i></button>
       </div>
     </header>
 
-    <!-- Start screen -->
-    <section id="startScreen" class="py-10 sm:py-16 text-center">
-      <h2 class="text-4xl sm:text-5xl font-semibold tracking-tight mb-4">Draw it. Let the AI guess.</h2>
-      <p class="max-w-md mx-auto text-neutral-500 mb-10">5 prompts against the clock. A neural network watches every stroke and calls it the moment it's sure.</p>
-      <div class="max-w-[240px] mx-auto mb-6">
-        <label for="nameInput" class="sr-only">Your name</label>
-        <input id="nameInput" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Your name" class="w-full text-center text-sm px-3 py-2.5 rounded-lg border border-neutral-200 bg-white placeholder:text-neutral-400 focus:outline-none focus:border-neutral-400 transition" />
-        <p id="nameHint" class="text-xs text-neutral-400 mt-1.5">Shown on leaderboards and in rooms</p>
-      </div>
-      <div role="group" aria-label="Difficulty" class="inline-flex p-1 rounded-lg bg-neutral-200/70 text-sm mb-2">
-        <button data-level="easy" class="px-4 py-1.5 rounded-md font-medium transition">Easy</button>
-        <button data-level="normal" class="px-4 py-1.5 rounded-md font-medium transition">Normal</button>
-        <button data-level="hard" class="px-4 py-1.5 rounded-md font-medium transition">Hard</button>
-      </div>
-      <p id="levelHint" class="text-xs text-neutral-400 mb-8"></p>
-      <div class="flex flex-wrap justify-center gap-2">
-        <button id="startBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 active:scale-[.98] transition disabled:opacity-40" disabled>Loading model…</button>
-        <button id="dailyBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 active:scale-[.98] transition disabled:opacity-40" disabled>Daily challenge</button>
-        <button id="roomBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 active:scale-[.98] transition disabled:opacity-40" disabled>Play with friends</button>
-      </div>
-      <button id="boardBtn" class="text-sm text-neutral-500 hover:text-neutral-900 underline underline-offset-4 decoration-neutral-300 transition mt-5">Leaderboard</button>
-      <p id="modelInfo" class="text-xs text-neutral-400 mt-4"></p>
-      <ol class="grid grid-cols-2 sm:grid-cols-4 gap-px max-w-2xl mx-auto mt-16 text-left bg-neutral-200 border border-neutral-200 rounded-xl overflow-hidden">
-        <li class="bg-white p-4"><div class="text-xs text-neutral-400 mb-1">01</div><div class="text-sm font-medium">Prompt</div><div class="text-xs text-neutral-500">A random object</div></li>
-        <li class="bg-white p-4"><div class="text-xs text-neutral-400 mb-1">02</div><div class="text-sm font-medium">Sketch</div><div class="text-xs text-neutral-500">15–25 seconds</div></li>
-        <li class="bg-white p-4"><div class="text-xs text-neutral-400 mb-1">03</div><div class="text-sm font-medium">AI guesses</div><div class="text-xs text-neutral-500">Live top 3</div></li>
-        <li class="bg-white p-4"><div class="text-xs text-neutral-400 mb-1">04</div><div class="text-sm font-medium">Score</div><div class="text-xs text-neutral-500">Faster = more points</div></li>
-      </ol>
-    </section>
+    <main class="lg:pl-60">
+      <div class="max-w-[1080px] mx-auto px-5 sm:px-8 lg:px-12 pt-8 sm:pt-12 lg:pt-16 pb-32 lg:pb-16">
 
-    <!-- Rooms: create / join, then the lobby -->
-    <section id="roomScreen" class="hidden max-w-md mx-auto py-6">
-      <button class="backBtn text-sm text-neutral-500 hover:text-neutral-900 transition mb-6">← Back</button>
-      <div id="roomJoin">
-        <h2 class="text-2xl font-semibold tracking-tight mb-1">Play with friends</h2>
-        <p class="text-sm text-neutral-500 mb-6">Everyone draws the same prompts at the same time, with a live ranking.</p>
-        <div class="rounded-xl border border-neutral-200 bg-white p-5 mb-3">
-          <div class="text-sm font-medium">Create a room</div>
-          <div class="text-xs text-neutral-500 mb-4">Difficulty: <span id="roomCreateLevel">Normal</span> (change it on the start screen)</div>
-          <button id="createRoomBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 active:scale-[.98] transition disabled:opacity-40">Create room</button>
-        </div>
-        <div class="rounded-xl border border-neutral-200 bg-white p-5">
-          <label for="codeInput" class="text-sm font-medium">Join a room</label>
-          <div class="flex gap-2 mt-3">
-            <input id="codeInput" maxlength="4" autocomplete="off" spellcheck="false" placeholder="CODE" class="w-28 text-center uppercase tracking-[.3em] text-sm px-3 py-2.5 rounded-lg border border-neutral-200 placeholder:text-neutral-300 focus:outline-none focus:border-neutral-400 transition" />
-            <button id="joinRoomBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 active:scale-[.98] transition disabled:opacity-40">Join</button>
-          </div>
-        </div>
-        <p id="roomError" class="text-sm text-red-600 mt-3 min-h-[1.25rem]"></p>
-      </div>
-      <div id="roomLobby" class="hidden">
-        <div class="text-xs text-neutral-400 mb-1">Room code</div>
-        <div class="flex items-center gap-3 mb-1">
-          <div id="lobbyCode" class="text-5xl font-semibold tracking-[.15em] tabular-nums">ABCD</div>
-          <button id="copyLinkBtn" class="text-xs px-3 py-1.5 rounded-md border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100 transition">Copy invite link</button>
-        </div>
-        <div id="lobbyLevel" class="text-sm text-neutral-500 mb-6"></div>
-        <ol id="lobbyPlayers" class="rounded-xl border border-neutral-200 bg-white divide-y divide-neutral-100 mb-6"></ol>
-        <div class="flex items-center gap-3">
-          <button id="startRoomBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 active:scale-[.98] transition disabled:opacity-40">Start game</button>
-          <p id="lobbyWait" class="text-sm text-neutral-500">Waiting for the host to start…</p>
-          <button id="leaveRoomBtn" class="ml-auto text-sm text-neutral-500 hover:text-neutral-900 transition">Leave room</button>
-        </div>
-        <p id="lobbyError" class="text-sm text-red-600 mt-3 min-h-[1.25rem]"></p>
-      </div>
-    </section>
+        <!-- ---------- Play ---------- -->
+        <section id="viewPlay" data-view="play" class="hidden">
+          <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-10 lg:gap-14">
+            <div>
+              <div id="modelInfo" class="inline-flex items-center gap-2 h-7 pl-2 pr-3 rounded-full border border-white/[.07] bg-white/[.03] text-[12px] text-zinc-400 mb-7">
+                <span class="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>Loading model…
+              </div>
+              <h1 class="text-[40px] sm:text-[56px] leading-[1.02] font-semibold tracking-[-0.035em] mb-5">Draw it.<br /><span class="text-zinc-500">Let the AI guess.</span></h1>
+              <p class="max-w-[440px] text-[15px] leading-relaxed text-zinc-400 mb-10">Five prompts against the clock. A neural network watches every stroke and calls it the moment it's sure.</p>
 
-    <!-- Leaderboard -->
-    <section id="boardScreen" class="hidden max-w-md mx-auto py-6">
-      <button class="backBtn text-sm text-neutral-500 hover:text-neutral-900 transition mb-6">← Back</button>
-      <h2 class="text-2xl font-semibold tracking-tight mb-5">Leaderboard</h2>
-      <div class="flex flex-wrap gap-2 mb-5">
-        <div role="group" aria-label="Board" class="inline-flex p-1 rounded-lg bg-neutral-200/70 text-sm">
-          <button data-board="daily" class="px-3 py-1.5 rounded-md font-medium transition">Today's challenge</button>
-          <button data-board="all" class="px-3 py-1.5 rounded-md font-medium transition">All time</button>
-        </div>
-        <div role="group" aria-label="Difficulty" class="inline-flex p-1 rounded-lg bg-neutral-200/70 text-sm">
-          <button data-board-level="easy" class="px-3 py-1.5 rounded-md font-medium transition">Easy</button>
-          <button data-board-level="normal" class="px-3 py-1.5 rounded-md font-medium transition">Normal</button>
-          <button data-board-level="hard" class="px-3 py-1.5 rounded-md font-medium transition">Hard</button>
-        </div>
-      </div>
-      <ol id="boardList" class="rounded-xl border border-neutral-200 bg-white divide-y divide-neutral-100"></ol>
-      <p id="boardNote" class="text-xs text-neutral-400 mt-3"></p>
-    </section>
+              <div class="max-w-[520px] space-y-7">
+                <div>
+                  <label for="nameInput" class="label">Your name</label>
+                  <div class="relative max-w-[280px]">
+                    <i class="ph ph-user absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-[16px] pointer-events-none"></i>
+                    <input id="nameInput" class="name-field input pl-9" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Shown on leaderboards" />
+                  </div>
+                </div>
 
-    <!-- Game screen -->
-    <section id="gameScreen" class="hidden">
-      <div class="flex items-end justify-between gap-3 mb-3">
-        <div>
-          <div class="text-xs text-neutral-400 mb-1">Draw</div>
-          <div id="prompt" class="text-2xl sm:text-3xl font-semibold tracking-tight">Cat</div>
-        </div>
-        <div id="timeLeft" class="text-2xl sm:text-3xl font-medium tabular-nums">20.0</div>
-      </div>
-      <div class="h-1 rounded-full bg-neutral-200 overflow-hidden mb-5">
-        <div id="timerBar" class="h-full w-full bg-neutral-900"></div>
-      </div>
+                <div>
+                  <div class="label">Difficulty</div>
+                  <div role="group" aria-label="Difficulty" class="grid grid-cols-3 gap-2">
+                    <button data-level="easy" class="level-card"></button>
+                    <button data-level="normal" class="level-card"></button>
+                    <button data-level="hard" class="level-card"></button>
+                  </div>
+                </div>
 
-      <div class="grid lg:grid-cols-[1fr_280px] gap-5">
-        <div>
-          <div class="relative">
-            <canvas id="board" class="w-full aspect-square sm:aspect-[4/3] rounded-xl bg-white border border-neutral-200 block"></canvas>
-            <div id="countdown" class="hidden absolute inset-0 rounded-xl flex flex-col items-center justify-center bg-white/90">
-              <div class="text-xs text-neutral-400 mb-2">Starting in</div>
-              <div id="countdownNum" class="text-7xl font-semibold tabular-nums">3</div>
-              <div id="countdownFirst" class="text-sm text-neutral-500 mt-3"></div>
+                <div class="flex flex-wrap items-center gap-2 pt-1">
+                  <button id="startBtn" class="btn btn-primary btn-lg" disabled><i class="ph-fill ph-play"></i><span>Loading model…</span></button>
+                  <button data-nav="friends" class="btn btn-secondary btn-lg"><i class="ph ph-users-three"></i>Play with friends</button>
+                </div>
+              </div>
             </div>
-            <div id="overlay" class="hidden absolute inset-0 rounded-xl flex items-center justify-center bg-white/85 backdrop-blur-sm">
-              <div class="text-center pop px-6">
-                <div id="overlayTitle" class="text-3xl font-semibold tracking-tight mb-2">Match</div>
-                <div id="overlaySub" class="text-sm text-neutral-500 mb-6"></div>
-                <button id="nextBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 active:scale-[.98] transition">Next round</button>
+
+            <aside class="space-y-4 lg:pt-[52px]">
+              <button data-nav="daily" class="card w-full text-left p-5 group hover:border-white/[.12] hover:bg-zinc-900/70 transition">
+                <div class="flex items-start justify-between mb-6">
+                  <span class="grid place-items-center w-9 h-9 rounded-lg bg-white/[.05] border border-white/[.06] text-zinc-300"><i class="ph ph-calendar-dots text-[18px]"></i></span>
+                  <i class="ph ph-arrow-up-right text-zinc-600 group-hover:text-zinc-300 transition"></i>
+                </div>
+                <div class="text-[15px] font-medium mb-1">Daily challenge</div>
+                <div id="playDailyStatus" class="text-[13px] text-zinc-500">Same five prompts for everyone today</div>
+              </button>
+
+              <div class="card p-5">
+                <div class="eyebrow mb-4">How it works</div>
+                <ol class="space-y-4">
+                  <li class="flex gap-3"><i class="ph ph-shuffle text-[18px] text-zinc-400 mt-px"></i><div><div class="text-sm font-medium">Get a prompt</div><div class="text-[13px] text-zinc-500">One of 150 everyday objects</div></div></li>
+                  <li class="flex gap-3"><i class="ph ph-pencil-simple-line text-[18px] text-zinc-400 mt-px"></i><div><div class="text-sm font-medium">Sketch it</div><div class="text-[13px] text-zinc-500">15–25 seconds, depending on level</div></div></li>
+                  <li class="flex gap-3"><i class="ph ph-sparkle text-[18px] text-zinc-400 mt-px"></i><div><div class="text-sm font-medium">The AI guesses live</div><div class="text-[13px] text-zinc-500">Top three, updated as you draw</div></div></li>
+                  <li class="flex gap-3"><i class="ph ph-lightning text-[18px] text-zinc-400 mt-px"></i><div><div class="text-sm font-medium">Score</div><div class="text-[13px] text-zinc-500">500 per match, plus a speed bonus</div></div></li>
+                </ol>
+              </div>
+            </aside>
+          </div>
+          <p class="text-[12px] text-zinc-600 mt-16">Trained on Google's Quick, Draw! dataset · the AI runs entirely in your browser</p>
+        </section>
+
+        <!-- ---------- Daily ---------- -->
+        <section id="viewDaily" data-view="daily" class="hidden max-w-[640px]">
+          <div id="dailyDate" class="eyebrow mb-3"></div>
+          <h2 class="text-[32px] sm:text-[40px] leading-tight font-semibold tracking-[-0.03em] mb-3">Daily challenge</h2>
+          <p class="text-[15px] text-zinc-400 mb-8">The same five prompts for everyone today. Only your first game counts.</p>
+
+          <div class="card p-5 sm:p-6 mb-4">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+              <div role="group" aria-label="Difficulty" class="seg">
+                <button data-level="easy">Easy</button><button data-level="normal">Normal</button><button data-level="hard">Hard</button>
+              </div>
+              <div class="flex items-center gap-1.5 text-[12px] text-zinc-500"><i class="ph ph-clock-countdown text-[14px]"></i><span id="dailyReset"></span></div>
+            </div>
+            <div class="name-gate hidden mb-5">
+              <label class="label" for="dailyName">Your name</label>
+              <input id="dailyName" class="name-field input max-w-[280px]" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Needed for the leaderboard" />
+              <p class="name-hint text-[12px] text-zinc-500 mt-2">Enter a name to play today's challenge</p>
+            </div>
+            <div id="dailyTodo">
+              <button id="dailyBtn" class="btn btn-primary btn-lg" disabled><i class="ph-fill ph-play"></i>Start today's challenge</button>
+            </div>
+            <div id="dailyDone" class="hidden">
+              <div class="eyebrow mb-1">Your score today</div>
+              <div class="flex items-end justify-between gap-4">
+                <div id="dailyScore" class="num text-[44px] leading-none font-semibold">0</div>
+                <button data-nav="board" data-board-target="daily" class="btn btn-secondary btn-sm"><i class="ph ph-trophy"></i>Full leaderboard</button>
               </div>
             </div>
           </div>
-          <div class="flex gap-2 mt-3">
-            <button id="undoBtn" class="text-sm px-4 py-2 rounded-lg text-neutral-600 border border-neutral-200 bg-white hover:bg-neutral-100 transition">Undo</button>
-            <button id="clearBtn" class="text-sm px-4 py-2 rounded-lg text-neutral-600 border border-neutral-200 bg-white hover:bg-neutral-100 transition">Clear</button>
-            <button id="skipBtn" class="ml-auto text-sm px-4 py-2 rounded-lg text-neutral-500 hover:text-neutral-900 transition">Skip</button>
-          </div>
-        </div>
 
-        <aside>
-          <div class="flex items-center justify-between mb-3">
-            <div class="text-xs text-neutral-400">AI</div>
-            <div class="text-xs text-neutral-400 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-neutral-300" id="aiDot"></span><span id="aiStatusText">waiting</span></div>
+          <div class="flex items-baseline justify-between mb-2.5 px-1">
+            <div class="text-sm font-medium">Today's top players</div>
+            <div id="dailyTopLevel" class="text-[12px] text-zinc-500"></div>
           </div>
-          <div id="aiThought" class="text-base font-medium mb-5 min-h-[48px]">Start drawing…</div>
-          <ol id="guesses" class="space-y-3"></ol>
-          <div class="mt-6 pt-5 border-t border-neutral-200 flex items-center gap-3">
-            <canvas id="aiEye" width="28" height="28" class="w-14 h-14 rounded-md bg-white border border-neutral-200 [image-rendering:pixelated]"></canvas>
-            <p class="text-xs text-neutral-400 leading-relaxed">What the model sees: your sketch at 28×28. Match at <span id="thresholdLabel">70</span>% confidence.</p>
-          </div>
-          <div id="roomPanel" class="hidden mt-6 pt-5 border-t border-neutral-200">
-            <div class="flex items-center justify-between mb-3">
-              <div class="text-xs text-neutral-400">Room <span id="roomPanelCode" class="text-neutral-900 font-medium"></span></div>
-              <button id="roomPanelLeave" class="text-xs text-neutral-400 hover:text-neutral-900 transition">Leave</button>
+          <ol id="dailyTop" class="list"></ol>
+        </section>
+
+        <!-- ---------- Friends ---------- -->
+        <section id="viewFriends" data-view="friends" class="hidden max-w-[760px]">
+          <div id="roomJoin">
+            <h2 class="text-[32px] sm:text-[40px] leading-tight font-semibold tracking-[-0.03em] mb-3">Play with friends</h2>
+            <p class="text-[15px] text-zinc-400 mb-8">Everyone draws the same prompts at the same time, with a live ranking. Up to 12 players.</p>
+
+            <div class="name-gate hidden card p-5 mb-4">
+              <label class="label" for="friendsName">Your name</label>
+              <input id="friendsName" class="name-field input max-w-[280px]" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Shown to other players" />
+              <p class="name-hint text-[12px] text-zinc-500 mt-2">Enter a name to create or join a room</p>
             </div>
-            <ol id="roomPanelList" class="space-y-2 text-sm"></ol>
+
+            <div class="grid sm:grid-cols-2 gap-4">
+              <div class="card p-5 sm:p-6 flex flex-col">
+                <span class="grid place-items-center w-9 h-9 rounded-lg bg-white/[.05] border border-white/[.06] text-zinc-300 mb-5"><i class="ph ph-plus text-[18px]"></i></span>
+                <div class="text-[15px] font-medium mb-1">Create a room</div>
+                <div class="text-[13px] text-zinc-500 mb-5">You'll get a code to share.</div>
+                <div role="group" aria-label="Difficulty" class="seg self-start mb-5">
+                  <button data-level="easy">Easy</button><button data-level="normal">Normal</button><button data-level="hard">Hard</button>
+                </div>
+                <button id="createRoomBtn" class="btn btn-primary mt-auto self-start">Create room<i class="ph ph-arrow-right"></i></button>
+              </div>
+              <div class="card p-5 sm:p-6 flex flex-col">
+                <span class="grid place-items-center w-9 h-9 rounded-lg bg-white/[.05] border border-white/[.06] text-zinc-300 mb-5"><i class="ph ph-sign-in text-[18px]"></i></span>
+                <label for="codeInput" class="text-[15px] font-medium mb-1">Join with a code</label>
+                <div class="text-[13px] text-zinc-500 mb-5">Ask the host for the 4-letter code.</div>
+                <div class="flex gap-2 mt-auto">
+                  <input id="codeInput" maxlength="4" autocomplete="off" spellcheck="false" placeholder="ABCD" class="input w-[120px] h-10 text-center uppercase font-mono text-[15px] tracking-[.35em] placeholder:font-mono placeholder:tracking-[.35em]" />
+                  <button id="joinRoomBtn" class="btn btn-secondary">Join</button>
+                </div>
+              </div>
+            </div>
+            <p id="roomError" class="flex items-center gap-1.5 text-[13px] text-red-400 mt-4 min-h-[20px]"></p>
           </div>
-        </aside>
-      </div>
-    </section>
 
-    <!-- Summary screen -->
-    <section id="summaryScreen" class="hidden py-6">
-      <div class="text-center mb-10">
-        <div class="text-xs text-neutral-400 mb-2">Final score · <span id="summaryLevel">Normal</span></div>
-        <div id="finalScore" class="text-6xl font-semibold tracking-tight tabular-nums mb-3 pop">0</div>
-        <div id="finalRank" class="text-lg font-medium"></div>
-        <p id="rankHint" class="text-sm text-neutral-500 mt-1"></p>
-      </div>
-      <div class="grid grid-cols-3 max-w-md mx-auto mb-10 text-center divide-x divide-neutral-200">
-        <div><div id="statMatched" class="text-xl font-medium tabular-nums">0/5</div><div class="text-xs text-neutral-400 mt-1">recognized</div></div>
-        <div><div id="statAvg" class="text-xl font-medium tabular-nums">–</div><div class="text-xs text-neutral-400 mt-1">avg. time</div></div>
-        <div><div id="statBest" class="text-xl font-medium tabular-nums">–</div><div class="text-xs text-neutral-400 mt-1">fastest</div></div>
-      </div>
-      <div id="summaryOnline" class="hidden max-w-md mx-auto mb-10">
-        <div class="flex items-baseline justify-between gap-3 mb-2">
-          <div id="summaryOnlineTitle" class="text-sm font-medium"></div>
-          <div id="summaryOnlineNote" class="text-xs text-neutral-500 text-right"></div>
-        </div>
-        <ol id="summaryOnlineList" class="rounded-xl border border-neutral-200 bg-white divide-y divide-neutral-100"></ol>
-      </div>
-      <div id="roundCards" class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-10"></div>
-      <div class="flex flex-wrap justify-center items-center gap-2">
-        <button id="againBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 active:scale-[.98] transition disabled:opacity-40">Play again</button>
-        <button id="homeBtn" class="text-sm font-medium px-5 py-2.5 rounded-lg border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 active:scale-[.98] transition disabled:opacity-40">Home</button>
-      </div>
-      <p id="summaryWait" class="hidden text-center text-sm text-neutral-500 mt-3">Waiting for the host to start the next game…</p>
-    </section>
+          <div id="roomLobby" class="hidden">
+            <div class="eyebrow mb-3">Room code</div>
+            <div class="flex flex-wrap items-center gap-4 mb-2">
+              <div id="lobbyCode" class="mono text-[56px] sm:text-[64px] leading-none font-semibold tracking-[.12em]">ABCD</div>
+              <button id="copyLinkBtn" class="btn btn-secondary btn-sm"><i class="ph ph-link-simple"></i><span>Copy invite link</span></button>
+            </div>
+            <div id="lobbyLevel" class="text-[13px] text-zinc-500 mb-8"></div>
 
-    <footer class="text-center text-xs text-neutral-400 mt-12">Trained on Google's Quick, Draw! dataset · the AI runs entirely in your browser</footer>
+            <div class="flex items-baseline justify-between mb-2.5 px-1">
+              <div class="text-sm font-medium">Players</div>
+              <div id="lobbyCount" class="text-[12px] text-zinc-500"></div>
+            </div>
+            <ol id="lobbyPlayers" class="list mb-6"></ol>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <button id="startRoomBtn" class="btn btn-primary btn-lg"><i class="ph-fill ph-play"></i><span>Start game</span></button>
+              <p id="lobbyWait" class="flex items-center gap-2 text-[13px] text-zinc-400"><span class="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-pulse"></span><span>Waiting for the host to start…</span></p>
+              <button id="leaveRoomBtn" class="btn btn-ghost ml-auto"><i class="ph ph-sign-out"></i>Leave room</button>
+            </div>
+            <p id="lobbyError" class="text-[13px] text-red-400 mt-3 min-h-[20px]"></p>
+          </div>
+        </section>
+
+        <!-- ---------- Leaderboard ---------- -->
+        <section id="viewBoard" data-view="board" class="hidden max-w-[640px]">
+          <h2 class="text-[32px] sm:text-[40px] leading-tight font-semibold tracking-[-0.03em] mb-6">Leaderboard</h2>
+          <div class="flex flex-wrap gap-2 mb-5">
+            <div role="group" aria-label="Board" class="seg">
+              <button data-board="daily">Today</button>
+              <button data-board="all">All time</button>
+            </div>
+            <div role="group" aria-label="Difficulty" class="seg">
+              <button data-board-level="easy">Easy</button>
+              <button data-board-level="normal">Normal</button>
+              <button data-board-level="hard">Hard</button>
+            </div>
+          </div>
+          <ol id="boardList" class="list"></ol>
+          <p id="boardNote" class="flex items-center gap-1.5 text-[12px] text-zinc-500 mt-3 px-1"></p>
+        </section>
+
+        <!-- ---------- Results ---------- -->
+        <section id="viewResults" data-view="results" class="hidden">
+          <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-10 lg:gap-12">
+            <div>
+              <div id="summaryLevel" class="eyebrow mb-3">Final score</div>
+              <div id="finalScore" class="num text-[72px] sm:text-[88px] leading-[.9] font-semibold tracking-[-0.04em] mb-5 pop">0</div>
+              <div class="flex items-center gap-2 text-[17px] font-medium mb-1"><i class="ph-fill ph-medal text-zinc-400"></i><span id="finalRank"></span></div>
+              <p id="rankHint" class="text-sm text-zinc-500 max-w-[440px] mb-8"></p>
+
+              <div class="grid grid-cols-3 gap-2 mb-8">
+                <div class="card px-4 py-3.5"><div class="eyebrow mb-1.5">Recognized</div><div id="statMatched" class="num text-xl font-medium">0/5</div></div>
+                <div class="card px-4 py-3.5"><div class="eyebrow mb-1.5">Avg. time</div><div id="statAvg" class="num text-xl font-medium">–</div></div>
+                <div class="card px-4 py-3.5"><div class="eyebrow mb-1.5">Fastest</div><div id="statBest" class="num text-xl font-medium">–</div></div>
+              </div>
+
+              <div id="roundCards" class="flex sm:grid sm:grid-cols-5 gap-2 mb-8 overflow-x-auto snap-x scroll-px-5 -mx-5 px-5 sm:mx-0 sm:px-0 sm:overflow-visible"></div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <button id="againBtn" class="btn btn-primary btn-lg"><i class="ph ph-arrow-counter-clockwise"></i><span>Play again</span></button>
+                <button id="homeBtn" class="btn btn-secondary btn-lg"><span>Home</span></button>
+              </div>
+              <p id="summaryWait" class="hidden flex items-center gap-2 text-[13px] text-zinc-400 mt-4"><span class="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-pulse"></span>Waiting for the host to start the next game…</p>
+            </div>
+
+            <aside id="summaryOnline" class="hidden lg:pt-[30px]">
+              <div class="flex items-baseline justify-between gap-3 mb-2.5 px-1">
+                <div id="summaryOnlineTitle" class="text-sm font-medium"></div>
+                <div id="summaryOnlineNote" class="text-[12px] text-zinc-500 text-right"></div>
+              </div>
+              <ol id="summaryOnlineList" class="list"></ol>
+            </aside>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- Mobile tab bar -->
+    <nav aria-label="Main" class="lg:hidden fixed bottom-0 inset-x-0 z-20 bg-ink-950/90 backdrop-blur-md border-t border-white/[.06] pb-safe">
+      <div class="grid grid-cols-4 h-16">
+        <button class="tab-item" data-nav="play"><i class="ph ph-play-circle" data-icon="play-circle"></i>Play</button>
+        <button class="tab-item" data-nav="daily"><i class="ph ph-calendar-dots" data-icon="calendar-dots"></i>Daily</button>
+        <button class="tab-item relative" data-nav="friends"><i class="ph ph-users-three" data-icon="users-three"></i>Friends<span class="room-dot hidden absolute top-2.5 left-1/2 ml-3 w-1.5 h-1.5 rounded-full bg-emerald-400"></span></button>
+        <button class="tab-item" data-nav="board"><i class="ph ph-trophy" data-icon="trophy"></i>Ranks</button>
+      </div>
+    </nav>
   </div>
+
+  <!-- Name popover (opened from the name chips) -->
+  <div id="namePop" class="hidden fixed z-50 w-[260px] raised p-4 pop">
+    <label for="namePopInput" class="label">Your name</label>
+    <input id="namePopInput" class="name-field input" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Shown on leaderboards" />
+    <div class="flex justify-end mt-3"><button id="namePopDone" class="btn btn-secondary btn-sm">Done</button></div>
+  </div>
+
+  <!-- ============ Game (full-screen stage) ============ -->
+  <section id="viewGame" data-view="game" class="hidden fixed inset-0 z-30 flex flex-col bg-ink-950">
+    <!-- Top bar -->
+    <header class="relative shrink-0 grid grid-cols-[1fr_auto_1fr] items-center gap-3 h-16 sm:h-[72px] px-3 sm:px-5 border-b border-white/[.06]">
+      <div class="flex items-center gap-3 sm:gap-5 min-w-0">
+        <div class="relative">
+          <button id="exitBtn" class="icon-btn" title="Leave game" aria-label="Leave game"><i class="ph ph-x"></i></button>
+          <div id="exitPop" class="hidden absolute top-full left-0 mt-2 z-40 w-[260px] raised p-4 pop">
+            <div class="text-sm font-medium mb-1">Leave this game?</div>
+            <p id="exitText" class="text-[13px] text-zinc-500 mb-4"></p>
+            <div class="flex justify-end gap-2">
+              <button id="exitStay" class="btn btn-ghost btn-sm">Stay</button>
+              <button id="exitLeave" class="btn btn-danger btn-sm">Leave</button>
+            </div>
+          </div>
+        </div>
+        <button id="roomChip" class="lg:hidden hidden h-8 px-2.5 rounded-full border border-white/[.08] bg-white/[.03] text-[12px] font-medium text-zinc-300 num"></button>
+        <div id="pips" class="hidden sm:flex items-center gap-1.5" aria-label="Rounds"></div>
+        <div id="hudLevel" class="hidden xl:block text-[12px] text-zinc-500 truncate"></div>
+      </div>
+
+      <div class="text-center min-w-0">
+        <div class="text-[11px] font-medium text-zinc-500 mb-0.5"><span class="sm:hidden">Round <span id="roundNum" class="num">1</span>/5 · </span>Draw</div>
+        <div id="prompt" class="text-[22px] sm:text-[28px] leading-none font-semibold tracking-[-0.02em] truncate">Cat</div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 sm:gap-6">
+        <div class="hidden sm:block text-right">
+          <div class="text-[11px] font-medium text-zinc-500 mb-0.5">Score</div>
+          <div id="score" class="num text-[17px] font-medium leading-none">0</div>
+        </div>
+        <div class="text-right min-w-[64px]">
+          <div class="text-[11px] font-medium text-zinc-500 mb-0.5">Time</div>
+          <div id="timeLeft" class="mono text-[22px] sm:text-[26px] font-medium leading-none transition-colors">20.0</div>
+        </div>
+      </div>
+      <div class="absolute left-0 right-0 -bottom-px h-[2px] bg-transparent">
+        <div id="timerBar" class="h-full w-full bg-zinc-100 origin-left"></div>
+      </div>
+    </header>
+
+    <!-- Stage -->
+    <div class="flex-1 min-h-0 flex gap-5 p-3 sm:p-5">
+      <div class="flex-1 min-w-0 min-h-0 flex flex-col gap-3">
+        <!-- Mobile AI strip -->
+        <div class="lg:hidden flex items-center gap-3 h-12 px-3.5 card">
+          <span class="ai-dot w-1.5 h-1.5 rounded-full bg-zinc-600 shrink-0"></span>
+          <span id="aiStripText" class="flex-1 min-w-0 truncate text-sm text-zinc-300">Start drawing…</span>
+          <span id="aiStripPct" class="num text-sm text-zinc-500"></span>
+        </div>
+
+        <div id="boardWrap" class="relative flex-1 min-h-0 rounded-2xl border border-white/[.07] dot-grid overflow-hidden">
+          <canvas id="board" class="absolute inset-0 w-full h-full block"></canvas>
+
+          <div id="countdown" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-ink-950/80 backdrop-blur-sm">
+            <div class="eyebrow mb-3">Starting in</div>
+            <div id="countdownNum" class="mono text-[96px] leading-none font-semibold">3</div>
+            <div id="countdownFirst" class="text-sm text-zinc-500 mt-4"></div>
+          </div>
+
+          <!-- Round result sheet -->
+          <div id="overlay" class="hidden absolute inset-x-3 bottom-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[420px]">
+            <div class="raised p-5 sheet-in">
+              <div class="flex items-start gap-3.5">
+                <span id="overlayIcon" class="grid place-items-center w-10 h-10 rounded-full shrink-0"></span>
+                <div class="flex-1 min-w-0">
+                  <div id="overlayTitle" class="text-lg font-semibold tracking-tight">Match</div>
+                  <div id="overlaySub" class="text-[13px] text-zinc-400 mt-0.5"></div>
+                </div>
+                <div id="overlayPoints" class="num text-lg font-semibold"></div>
+              </div>
+              <div class="flex items-center justify-end gap-3 mt-5">
+                <span class="hidden sm:flex items-center gap-1.5 text-[12px] text-zinc-500">Press <span class="kbd">↵</span></span>
+                <button id="nextBtn" class="btn btn-primary"><span>Next round</span><i class="ph ph-arrow-right"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="shrink-0 flex justify-center">
+          <div class="inline-flex items-center gap-1 p-1 rounded-xl border border-white/[.07] bg-zinc-900/60">
+            <button id="undoBtn" class="btn btn-ghost btn-sm"><i class="ph ph-arrow-u-up-left"></i>Undo<span class="kbd hidden sm:inline-grid ml-1">⌘Z</span></button>
+            <button id="clearBtn" class="btn btn-ghost btn-sm"><i class="ph ph-eraser"></i>Clear</button>
+            <span class="w-px h-5 bg-white/[.08] mx-1"></span>
+            <button id="skipBtn" class="btn btn-ghost btn-sm">Skip<i class="ph ph-skip-forward"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <aside class="hidden lg:flex w-[300px] shrink-0 flex-col gap-4 min-h-0">
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2 text-[13px] font-medium text-zinc-300"><i class="ph ph-sparkle text-[16px]"></i>AI</div>
+            <div class="flex items-center gap-1.5 text-[12px] text-zinc-500"><span class="ai-dot w-1.5 h-1.5 rounded-full bg-zinc-600"></span><span id="aiStatusText">waiting</span></div>
+          </div>
+          <div id="aiThought" class="text-[15px] font-medium leading-snug mb-5 min-h-[44px]">Start drawing…</div>
+          <ol id="guesses" class="space-y-3.5 min-h-[132px]"></ol>
+          <div class="flex items-center gap-3 mt-5 pt-5 border-t border-white/[.06]">
+            <canvas id="aiEye" width="28" height="28" class="w-14 h-14 rounded-lg border border-white/[.07] bg-ink-950 [image-rendering:pixelated]"></canvas>
+            <p class="text-[12px] leading-relaxed text-zinc-500">What the model sees: your sketch at 28×28. Match at <span id="thresholdLabel" class="num text-zinc-300">80</span>% confidence.</p>
+          </div>
+        </div>
+
+        <div id="roomPanel" class="hidden card p-5 min-h-0 flex flex-col">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2 text-[13px] font-medium text-zinc-300"><i class="ph ph-users-three text-[16px]"></i>Room <span id="roomPanelCode" class="num text-zinc-100"></span></div>
+          </div>
+          <ol id="roomPanelList" class="space-y-1 overflow-y-auto"></ol>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Mobile room ranking sheet -->
+    <div id="roomSheet" class="hidden lg:hidden fixed inset-0 z-40">
+      <div id="roomSheetBackdrop" class="absolute inset-0 bg-black/60"></div>
+      <div class="absolute inset-x-0 bottom-0 raised rounded-b-none p-5 pb-8 sheet-in max-h-[70dvh] overflow-y-auto">
+        <div class="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4"></div>
+        <div class="text-sm font-medium mb-3">Room <span id="roomSheetCode" class="num"></span></div>
+        <ol id="roomSheetList" class="space-y-1"></ol>
+      </div>
+    </div>
+  </section>
 
   <script src="model.js"></script>
   <script src="cnn.js"></script>

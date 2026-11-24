@@ -1,4 +1,4 @@
-// sketchX: game loop, drawing, live AI predictions, scoring.
+// sketchX: views, game loop, drawing, live AI predictions, scoring, leaderboards and rooms.
 (function () {
   const ROUNDS = 5;
   // time: seconds per round. threshold: AI confidence needed for a match.
@@ -12,7 +12,7 @@
   };
   // The model knows these, but they are too rarely recognized to be fair as prompts.
   const NOT_PROMPTS = new Set(["bear", "bird", "violin", "duck"]);
-  let level = LEVELS[localStorage.getItem("sketchx.level")] || LEVELS.normal; // picked on the start screen
+  let level = LEVELS[localStorage.getItem("sketchx.level")] || LEVELS.normal; // picked by the player
   let playLevel = level; // level of the game being played (a room can set its own)
   const BASE_POINTS = 500;
   const POINTS_PER_SECOND = 50; // bonus for every second left on the clock
@@ -20,55 +20,175 @@
 
   const RANKS = [
     { min: 6001, name: "AI Whisperer", hint: "The network understands you perfectly. Top rank unlocked!" },
-    { min: 3500, name: "Pixel Pro", hint: "Score over 6000 to become an AI Whisperer." },
-    { min: 1500, name: "Sketch Cadet", hint: "Draw faster and simpler. Score over 6000 for the top rank." },
+    { min: 3500, name: "Pixel Pro", hint: "Score over 6,000 to become an AI Whisperer." },
+    { min: 1500, name: "Sketch Cadet", hint: "Draw faster and simpler. Score over 6,000 for the top rank." },
     { min: 0, name: "Doodle Rookie", hint: "Tip: draw the most iconic shape first. The AI learned from millions of quick doodles." },
   ];
 
-  const ICON_SOUND = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>';
-  const ICON_MUTED = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>';
+  const INK = "#f4f4f5";
+  const THUMB_BG = "#111113";
 
   const $ = (id) => document.getElementById(id);
+  const $$ = (sel) => [...document.querySelectorAll(sel)];
   const el = {
-    start: $("startScreen"), game: $("gameScreen"), summary: $("summaryScreen"), room: $("roomScreen"), boardScr: $("boardScreen"),
-    startBtn: $("startBtn"), modelInfo: $("modelInfo"), hudRound: $("hudRound"), hudScore: $("hudScore"),
-    roundNum: $("roundNum"), score: $("score"), prompt: $("prompt"), timeLeft: $("timeLeft"), timerBar: $("timerBar"),
-    board: $("board"), overlay: $("overlay"), overlayTitle: $("overlayTitle"), overlaySub: $("overlaySub"),
-    nextBtn: $("nextBtn"), clearBtn: $("clearBtn"), undoBtn: $("undoBtn"), skipBtn: $("skipBtn"),
-    guesses: $("guesses"), aiThought: $("aiThought"), aiDot: $("aiDot"), aiStatusText: $("aiStatusText"),
-    aiEye: $("aiEye"), muteBtn: $("muteBtn"), finalScore: $("finalScore"), finalRank: $("finalRank"),
-    rankHint: $("rankHint"), roundCards: $("roundCards"), againBtn: $("againBtn"),
+    startBtn: $("startBtn"), prompt: $("prompt"), timeLeft: $("timeLeft"), timerBar: $("timerBar"),
+    roundNum: $("roundNum"), score: $("score"), board: $("board"), boardWrap: $("boardWrap"),
+    overlay: $("overlay"), overlayTitle: $("overlayTitle"), overlaySub: $("overlaySub"),
+    overlayIcon: $("overlayIcon"), overlayPoints: $("overlayPoints"), nextBtn: $("nextBtn"),
+    clearBtn: $("clearBtn"), undoBtn: $("undoBtn"), skipBtn: $("skipBtn"),
+    guesses: $("guesses"), aiThought: $("aiThought"), aiStatusText: $("aiStatusText"), aiEye: $("aiEye"),
+    aiStripText: $("aiStripText"), aiStripPct: $("aiStripPct"),
+    finalScore: $("finalScore"), finalRank: $("finalRank"), rankHint: $("rankHint"), roundCards: $("roundCards"),
+    againBtn: $("againBtn"), homeBtn: $("homeBtn"),
     statMatched: $("statMatched"), statAvg: $("statAvg"), statBest: $("statBest"),
   };
-  el.muteBtn.innerHTML = ICON_SOUND;
+
+  const fmt = (n) => Number(n).toLocaleString("en-US");
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const label = (c) => c[0].toUpperCase() + c.slice(1);
+  // "a cat", "an owl", "The Eiffel Tower", "headphones"
+  const withArticle = (c) => /^the /i.test(c) ? c : /^(headphones|eyeglasses|drums|grapes|scissors|broccoli)$/.test(c) ? c : (/^[aeiou]/i.test(c) ? "an " : "a ") + c;
+  const setText = (node, text) => { (node.querySelector("span") || node).textContent = text; };
+  const initial = (name) => esc((name.trim()[0] || "?").toUpperCase());
+
+  // ---------- Views ----------
+  const VIEWS = {
+    play: $("viewPlay"), daily: $("viewDaily"), friends: $("viewFriends"),
+    board: $("viewBoard"), results: $("viewResults"), game: $("viewGame"),
+  };
+  let current = null;
+  function go(name) {
+    current = name;
+    for (const [key, view] of Object.entries(VIEWS)) view.classList.toggle("hidden", key !== name);
+    $("shell").classList.toggle("hidden", name === "game");
+    for (const b of $$(".nav-item, .tab-item")) {
+      const on = b.dataset.nav === name;
+      if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+      const icon = b.querySelector("i[data-icon]");
+      icon.className = `${on ? "ph-fill" : "ph"} ph-${icon.dataset.icon}`;
+    }
+    closePopovers();
+    if (name !== "game") {
+      const v = VIEWS[name];
+      v.classList.remove("enter"); void v.offsetWidth; v.classList.add("enter");
+      window.scrollTo(0, 0);
+    }
+    if (name === "daily") renderDaily();
+    if (name === "friends") renderFriends();
+  }
+  for (const b of $$("[data-nav]")) {
+    b.addEventListener("click", () => {
+      const to = b.dataset.nav;
+      if (to === "board") return openBoard(b.dataset.boardTarget || boardView.board, levelKey(level));
+      go(to);
+    });
+  }
+
+  // ---------- Player name ----------
+  const playerId = localStorage.getItem("sketchx.player") || crypto.randomUUID();
+  localStorage.setItem("sketchx.player", playerId);
+  let name = localStorage.getItem("sketchx.name") || "";
+  const playerName = () => name.trim().slice(0, 16);
+  function paintName() {
+    const n = playerName();
+    for (const l of $$(".name-label")) { l.textContent = n || "Add your name"; l.classList.toggle("text-zinc-400", !n); }
+    for (const a of $$(".name-avatar")) a.innerHTML = n ? initial(n) : '<i class="ph ph-user text-[13px]"></i>';
+  }
+  for (const input of $$(".name-field")) {
+    input.value = name;
+    input.addEventListener("input", () => {
+      name = input.value;
+      localStorage.setItem("sketchx.name", name.trim());
+      for (const other of $$(".name-field")) if (other !== input) other.value = name;
+      for (const h of $$(".name-hint")) h.classList.remove("text-red-400");
+      paintName();
+    });
+  }
+  // Daily and Friends show a name field when one is needed; it stays while the view is open.
+  function paintGate(view, hint) {
+    const gate = VIEWS[view].querySelector(".name-gate");
+    if (!gate) return;
+    if (!playerName()) gate.classList.remove("hidden");
+    else if (!hint) gate.classList.add("hidden");
+    if (hint) gate.querySelector(".name-hint").textContent = hint;
+  }
+  function requireName(view) {
+    if (playerName()) return true;
+    const gate = VIEWS[view] && VIEWS[view].querySelector(".name-gate");
+    if (!gate) { $("nameInput").focus(); return false; }
+    gate.classList.remove("hidden");
+    const hint = gate.querySelector(".name-hint");
+    hint.textContent = "Enter a name first";
+    hint.classList.add("text-red-400");
+    gate.querySelector("input").focus();
+    return false;
+  }
+
+  // Name popover, opened from the chips in the rail and the mobile header.
+  const namePop = $("namePop");
+  let namePopFromResults = false;
+  document.addEventListener("click", (e) => {
+    const chip = e.target.closest(".name-chip, .name-cta");
+    if (!chip) return;
+    if (!namePop.classList.contains("hidden")) return closePopovers();
+    namePopFromResults = chip.classList.contains("name-cta");
+    namePop.classList.remove("hidden");
+    const r = chip.getBoundingClientRect(), h = namePop.offsetHeight, w = namePop.offsetWidth;
+    namePop.style.left = `${Math.max(8, Math.min(r.left, innerWidth - w - 8))}px`;
+    namePop.style.top = `${r.top > innerHeight / 2 ? r.top - h - 8 : r.bottom + 8}px`;
+    $("namePopInput").focus();
+    $("namePopInput").select();
+  });
+  $("namePopDone").addEventListener("click", closePopovers);
+  $("namePopInput").addEventListener("keydown", (e) => { if (e.key === "Enter") closePopovers(); });
+
+  function closePopovers() {
+    // A name added from the results screen saves that game's score right away.
+    if (namePopFromResults && !namePop.classList.contains("hidden") && playerName() && current === "results" && mode !== "room") showOnlineResult();
+    namePopFromResults = false;
+    namePop.classList.add("hidden");
+    $("exitPop").classList.add("hidden");
+    $("roomSheet").classList.add("hidden");
+  }
+  document.addEventListener("pointerdown", (e) => {
+    if (!namePop.classList.contains("hidden") && !namePop.contains(e.target) && !e.target.closest(".name-chip, .name-cta")) closePopovers();
+    if (!$("exitPop").classList.contains("hidden") && !e.target.closest("#exitPop, #exitBtn")) $("exitPop").classList.add("hidden");
+  });
 
   // ---------- Difficulty ----------
-  const levelButtons = [...document.querySelectorAll("[data-level]")];
+  const levelKey = (lv) => Object.keys(LEVELS).find((k) => LEVELS[k] === lv);
+  for (const card of $$(".level-card")) {
+    const lv = LEVELS[card.dataset.level];
+    card.classList.add("group");
+    card.innerHTML = `
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-sm font-medium">${lv.name}</span>
+        <i class="ph-fill ph-check-circle text-[16px] text-zinc-100 opacity-0 scale-75 transition group-aria-pressed:opacity-100 group-aria-pressed:scale-100"></i>
+      </div>
+      <div class="flex items-center gap-3 text-[12px] text-zinc-500">
+        <span class="flex items-center gap-1"><i class="ph ph-timer"></i><span class="num">${lv.time}s</span></span>
+        <span class="flex items-center gap-1"><i class="ph ph-target"></i><span class="num">${Math.round(lv.threshold * 100)}%</span></span>
+      </div>`;
+    card.title = `${lv.time} seconds per drawing · AI must be ${Math.round(lv.threshold * 100)}% sure`;
+  }
   function setLevel(key) {
     level = LEVELS[key];
     localStorage.setItem("sketchx.level", key);
-    for (const b of levelButtons) {
-      const on = b.dataset.level === key;
-      b.setAttribute("aria-pressed", on);
-      b.classList.toggle("bg-white", on); b.classList.toggle("shadow-sm", on); b.classList.toggle("text-neutral-900", on);
-      b.classList.toggle("text-neutral-500", !on);
-    }
-    $("levelHint").textContent = `${level.time} seconds per drawing · AI must be ${Math.round(level.threshold * 100)}% sure`;
-    $("roomCreateLevel").textContent = level.name;
-    updateDailyButton();
+    for (const b of $$("[data-level]")) b.setAttribute("aria-pressed", b.dataset.level === key);
+    updateDaily();
   }
-  for (const b of levelButtons) b.addEventListener("click", () => setLevel(b.dataset.level));
+  for (const b of $$("[data-level]")) b.addEventListener("click", () => setLevel(b.dataset.level));
 
   // ---------- Model ----------
   let cnn = null;
   try {
     cnn = new SketchCNN(window.SKETCH_MODEL);
-    el.startBtn.disabled = $("dailyBtn").disabled = $("roomBtn").disabled = false;
-    el.startBtn.textContent = "Play solo";
-    el.modelInfo.textContent = `AI knows ${cnn.classes.length} objects · validation accuracy ${(window.SKETCH_MODEL.valAccuracy * 100).toFixed(1)}%`;
+    el.startBtn.disabled = $("dailyBtn").disabled = false;
+    setText(el.startBtn, "Play solo");
+    $("modelInfo").innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>AI knows <span class="num text-zinc-200">${cnn.classes.length}</span> objects · <span class="num text-zinc-200">${(window.SKETCH_MODEL.valAccuracy * 100).toFixed(1)}%</span> accuracy`;
   } catch (e) {
-    el.startBtn.textContent = "Model missing";
-    el.modelInfo.textContent = "Could not load model.js. Run training/train.py first.";
+    setText(el.startBtn, "Model missing");
+    $("modelInfo").innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>Could not load model.js. Run training/train.py first.';
     console.error(e);
   }
 
@@ -98,20 +218,12 @@
     shuffle(cnn.classes.filter((c) => !NOT_PROMPTS.has(c)), seed === undefined ? Math.random : mulberry32(seed)).slice(0, ROUNDS);
   const today = () => new Date().toISOString().slice(0, 10); // UTC, same as the server
   const daySeed = (day) => [...day].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 16777619), 2166136261) >>> 0;
-  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-  const label = (c) => c[0].toUpperCase() + c.slice(1);
-  // "a cat", "an owl", "The Eiffel Tower", "headphones"
-  const withArticle = (c) => /^the /i.test(c) ? c : /^(headphones|eyeglasses|drums|grapes|scissors|broccoli)$/.test(c) ? c : (/^[aeiou]/i.test(c) ? "an " : "a ") + c;
-  const show = (screen) => {
-    for (const s of [el.start, el.game, el.summary, el.room, el.boardScr]) s.classList.toggle("hidden", s !== screen);
-    el.hudRound.classList.toggle("hidden", screen !== el.game);
-    el.hudScore.classList.toggle("hidden", screen !== el.game && screen !== el.summary);
-  };
 
   // ---------- Canvas drawing ----------
   const g = el.board.getContext("2d");
   function resizeBoard() {
     const r = el.board.getBoundingClientRect();
+    if (!r.width || !r.height) return;
     const dpr = window.devicePixelRatio || 1;
     el.board.width = Math.round(r.width * dpr);
     el.board.height = Math.round(r.height * dpr);
@@ -121,7 +233,7 @@
   function redraw() {
     const r = el.board.getBoundingClientRect();
     g.clearRect(0, 0, r.width, r.height);
-    g.strokeStyle = "#171717"; g.lineWidth = Math.max(4, r.width / 120); g.lineCap = "round"; g.lineJoin = "round";
+    g.strokeStyle = INK; g.lineWidth = Math.max(4, Math.min(r.width, r.height) / 90); g.lineCap = "round"; g.lineJoin = "round";
     for (const s of state ? state.strokes : []) {
       g.beginPath();
       s.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)));
@@ -150,7 +262,7 @@
   const endStroke = () => { if (state && state.drawing) { state.drawing = false; predict(true); } };
   el.board.addEventListener("pointerup", endStroke);
   el.board.addEventListener("pointercancel", endStroke);
-  window.addEventListener("resize", () => state && resizeBoard());
+  new ResizeObserver(() => current === "game" && resizeBoard()).observe(el.boardWrap);
 
   // ---------- AI ----------
   function inkLength() {
@@ -186,66 +298,97 @@
     const c = el.aiEye.getContext("2d");
     const img = c.createImageData(28, 28);
     for (let i = 0; i < 784; i++) {
-      const v = 255 - Math.round(px[i] * 232); // dark ink on white
-      img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v; img.data[i * 4 + 3] = 255;
+      const v = 9 + Math.round(px[i] * 235); // light ink on near-black
+      img.data[i * 4] = img.data[i * 4 + 1] = v; img.data[i * 4 + 2] = Math.min(255, v + 2); img.data[i * 4 + 3] = 255;
     }
     c.putImageData(img, 0, 0);
+  }
+
+  const DOT = { idle: "bg-zinc-600", thinking: "bg-zinc-100 animate-pulse", match: "bg-emerald-400", miss: "bg-red-400" };
+  function setStatus(text, tone) {
+    el.aiStatusText.textContent = text;
+    for (const d of $$(".ai-dot")) d.className = `ai-dot w-1.5 h-1.5 rounded-full shrink-0 ${DOT[tone]}`;
   }
 
   function renderGuesses(preds) {
     const target = state.prompts[state.round];
     if (!preds) {
-      el.guesses.innerHTML = "";
+      el.guesses.innerHTML = `<li class="flex flex-col items-center justify-center h-[132px] text-center text-[13px] text-zinc-600">
+        <i class="ph ph-pencil-simple-line text-[22px] mb-2"></i>Guesses appear as you draw</li>`;
       el.aiThought.textContent = "Start drawing…";
-      setStatus("waiting", "bg-neutral-300");
+      el.aiStripText.textContent = "Start drawing…";
+      el.aiStripPct.textContent = "";
+      setStatus("waiting", "idle");
       return;
     }
     const top = preds[0];
-    const name = top.label;
-    el.aiThought.textContent =
-      top.p >= playLevel.threshold ? `Oh I know, it's ${withArticle(name)}!` :
-      top.p >= 0.4 ? `I think it's ${withArticle(name)}…` :
-      top.p >= 0.2 ? `Is it ${withArticle(name)}?` : "Hmm… not sure yet";
-    setStatus("thinking", "bg-neutral-900 animate-pulse");
+    const thought =
+      top.p >= playLevel.threshold ? `Oh I know, it's ${withArticle(top.label)}!` :
+      top.p >= 0.4 ? `I think it's ${withArticle(top.label)}…` :
+      top.p >= 0.2 ? `Is it ${withArticle(top.label)}?` : "Hmm… not sure yet";
+    el.aiThought.textContent = thought;
+    el.aiStripText.textContent = thought;
+    el.aiStripPct.textContent = `${Math.round(top.p * 100)}%`;
+    el.aiStripPct.className = `num text-sm ${top.label === target ? "text-emerald-400" : "text-zinc-500"}`;
+    setStatus("thinking", "thinking");
     el.guesses.innerHTML = preds.slice(0, 3).map((p, i) => {
       const pct = Math.round(p.p * 100);
       const hit = p.label === target;
-      const bar = hit ? "bg-emerald-500" : i === 0 ? "bg-neutral-900" : "bg-neutral-300";
+      const bar = hit ? "bg-emerald-400" : i === 0 ? "bg-zinc-100" : "bg-zinc-600";
       return `<li>
-        <div class="flex justify-between text-sm mb-1">
-          <span class="${hit ? "text-emerald-600 font-medium" : "text-neutral-700"}">${label(p.label)}${hit ? " ✓" : ""}</span>
-          <span class="tabular-nums text-neutral-400">${pct}%</span>
+        <div class="flex items-center justify-between text-[13px] mb-1.5">
+          <span class="flex items-center gap-1.5 ${hit ? "text-emerald-400 font-medium" : i === 0 ? "text-zinc-100" : "text-zinc-400"}">${label(p.label)}${hit ? '<i class="ph-fill ph-check-circle"></i>' : ""}</span>
+          <span class="num text-zinc-500">${pct}%</span>
         </div>
-        <div class="h-1 rounded-full bg-neutral-100 overflow-hidden"><div class="bar h-full ${bar}" style="width:${pct}%"></div></div>
+        <div class="h-1 rounded-full bg-white/[.06] overflow-hidden"><div class="bar h-full rounded-full ${bar}" style="width:${pct}%"></div></div>
       </li>`;
     }).join("");
   }
-  function setStatus(text, dot) { el.aiStatusText.textContent = text; el.aiDot.className = `w-1.5 h-1.5 rounded-full ${dot}`; }
 
   // ---------- Game flow ----------
   // mode: "solo" (all-time board), "daily" (today's prompts, daily board) or "room".
   let mode = "solo";
   let countdownTimer = 0;
+
+  function paintPips() {
+    $("pips").innerHTML = Array.from({ length: ROUNDS }, (_, i) => {
+      const r = state.results[i];
+      const cls = r ? (r.matched ? "w-2 bg-emerald-400" : "w-2 bg-red-400/70")
+        : i === state.round ? "w-5 bg-zinc-100" : "w-2 bg-zinc-700/80";
+      return `<span class="h-2 rounded-full transition-all duration-300 ${cls}"></span>`;
+    }).join("");
+  }
+
+  function stopGame() {
+    if (state) { state.active = false; state.drawing = false; cancelAnimationFrame(state.raf); }
+    clearInterval(countdownTimer);
+    el.overlay.classList.add("hidden");
+    $("countdown").classList.add("hidden");
+  }
+
   function startGame(opts = {}) {
     Sfx.unlock();
     mode = opts.mode || "solo";
     playLevel = opts.level || level;
-    if (state) { state.active = false; cancelAnimationFrame(state.raf); }
-    clearInterval(countdownTimer);
+    stopGame();
     state = newState(opts.prompts || pickPrompts());
+    const where = mode === "daily" ? "Daily challenge" : mode === "room" ? `Room ${room.code}` : "Solo";
     $("thresholdLabel").textContent = Math.round(playLevel.threshold * 100);
-    $("hudLevel").textContent = playLevel.name + (mode === "daily" ? " · Daily" : mode === "room" ? ` · Room ${room.code}` : "");
-    $("summaryLevel").textContent = playLevel.name + (mode === "daily" ? " · Daily challenge" : mode === "room" ? ` · Room ${room.code}` : "");
+    $("hudLevel").textContent = `${where} · ${playLevel.name}`;
+    $("summaryLevel").textContent = `Final score · ${where} · ${playLevel.name}`;
     $("roomPanel").classList.toggle("hidden", mode !== "room");
+    $("roomChip").classList.toggle("hidden", mode !== "room");
     el.score.textContent = "0";
-    el.overlay.classList.add("hidden");
-    show(el.game);
+    go("game");
     resizeBoard();
-    if (!opts.at || opts.at <= Date.now()) { $("countdown").classList.add("hidden"); startRound(); return; }
+    paintPips();
+    if (!opts.at || opts.at <= Date.now()) { startRound(); return; }
     // Rooms: everyone starts at the same moment, after a short countdown.
     el.prompt.textContent = "Get ready";
     el.timeLeft.textContent = playLevel.time.toFixed(1);
+    el.timerBar.style.width = "100%";
     el.roundNum.textContent = 1;
+    $("countdownFirst").textContent = `${playLevel.name} · ${playLevel.time} seconds per drawing`;
     renderGuesses(null);
     redraw();
     $("countdown").classList.remove("hidden");
@@ -258,17 +401,24 @@
     countdownTimer = setInterval(tickDown, 100);
   }
 
+  function setUrgent(on) {
+    el.timeLeft.classList.toggle("text-red-400", on);
+    el.timerBar.classList.toggle("bg-red-400", on);
+    el.timerBar.classList.toggle("bg-zinc-100", !on);
+  }
+
   function startRound() {
     Object.assign(state, { strokes: [], drawing: false, active: true, best: null, lastTop: null, lastTickSec: null, lastPredict: 0, matchSince: null });
     const target = state.prompts[state.round];
     el.roundNum.textContent = state.round + 1;
     el.prompt.textContent = label(target);
     el.timeLeft.textContent = playLevel.time.toFixed(1);
-    el.timeLeft.classList.remove("text-red-600");
+    setUrgent(false);
     el.timerBar.style.width = "100%";
     el.prompt.classList.remove("pop"); void el.prompt.offsetWidth; el.prompt.classList.add("pop");
     el.overlay.classList.add("hidden");
     el.aiEye.getContext("2d").clearRect(0, 0, 28, 28);
+    paintPips();
     renderGuesses(null);
     redraw();
     Sfx.start();
@@ -282,9 +432,7 @@
     const elapsed = (performance.now() - state.startTime) / 1000;
     const left = Math.max(0, playLevel.time - elapsed);
     el.timeLeft.textContent = left.toFixed(1);
-    el.timeLeft.classList.toggle("text-red-600", left <= 5);
-    el.timerBar.classList.toggle("bg-red-600", left <= 5);
-    el.timerBar.classList.toggle("bg-neutral-900", left > 5);
+    setUrgent(left <= 5);
     el.timerBar.style.width = `${(left / playLevel.time) * 100}%`;
     const sec = Math.ceil(left);
     if (sec !== state.lastTickSec && sec <= 5 && sec > 0) { sec <= 3 ? Sfx.urgent() : Sfx.tick(); }
@@ -310,45 +458,52 @@
       aiGuess: state.best ? state.best.top.label : null,
       image: snapshot(),
     });
-    el.score.textContent = state.score;
+    el.score.textContent = fmt(state.score);
+    paintPips();
 
     if (matched) {
       Sfx.match();
-      setStatus("match", "bg-emerald-500");
-      el.overlayTitle.className = "text-3xl font-semibold tracking-tight mb-2 text-emerald-600";
+      setStatus("match", "match");
+      el.overlayIcon.className = "grid place-items-center w-10 h-10 rounded-full shrink-0 bg-emerald-400/10 text-emerald-400 border border-emerald-400/20";
+      el.overlayIcon.innerHTML = '<i class="ph ph-check text-[20px]"></i>';
       el.overlayTitle.textContent = "Match";
-      el.overlaySub.innerHTML = `${Math.round(confidence * 100)}% sure in ${elapsed.toFixed(1)}s<br>
-        <span class="text-neutral-900 font-medium tabular-nums">+${points}</span> <span class="text-neutral-400">(${BASE_POINTS} + ${bonus} speed bonus)</span>`;
+      el.overlaySub.innerHTML = `<span class="num">${Math.round(confidence * 100)}%</span> sure in <span class="num">${elapsed.toFixed(1)}s</span> · ${BASE_POINTS} + <span class="num">${bonus}</span> speed bonus`;
+      el.overlayPoints.className = "num text-lg font-semibold text-emerald-400";
+      el.overlayPoints.textContent = `+${fmt(points)}`;
     } else {
       Sfx.fail();
-      setStatus(skipped ? "skipped" : "time up", "bg-red-500");
-      el.overlayTitle.className = "text-3xl font-semibold tracking-tight mb-2";
+      setStatus(skipped ? "skipped" : "time up", "miss");
+      el.overlayIcon.className = "grid place-items-center w-10 h-10 rounded-full shrink-0 bg-white/[.04] text-zinc-400 border border-white/[.08]";
+      el.overlayIcon.innerHTML = `<i class="ph ${skipped ? "ph-skip-forward" : "ph-timer"} text-[20px]"></i>`;
       el.overlayTitle.textContent = skipped ? "Skipped" : "Time's up";
       el.overlaySub.textContent = state.best ? `The AI thought it looked like ${withArticle(state.best.top.label)}.` : "The AI didn't see anything to guess.";
-      el.board.parentElement.classList.add("shake");
-      setTimeout(() => el.board.parentElement.classList.remove("shake"), 700);
+      el.overlayPoints.className = "num text-lg font-semibold text-zinc-600";
+      el.overlayPoints.textContent = "+0";
+      el.boardWrap.classList.add("shake");
+      setTimeout(() => el.boardWrap.classList.remove("shake"), 700);
     }
-    el.nextBtn.textContent = state.round + 1 >= ROUNDS ? "See results" : "Next round";
+    setText(el.nextBtn, state.round + 1 >= ROUNDS ? "See results" : "Next round");
     el.overlay.classList.remove("hidden");
     if (mode === "room") sendRoomProgress(state.round + 1 >= ROUNDS);
   }
 
   function snapshot() {
     const c = document.createElement("canvas");
-    c.width = c.height = 160;
+    c.width = c.height = 200;
     const x = c.getContext("2d");
-    x.fillStyle = "#ffffff"; x.fillRect(0, 0, 160, 160);
+    x.fillStyle = THUMB_BG; x.fillRect(0, 0, 200, 200);
     // Re-draw the vector strokes, fitted to the thumbnail.
     const pts = state.strokes.flat();
     if (!pts.length) return c.toDataURL();
     const minX = Math.min(...pts.map((p) => p.x)), maxX = Math.max(...pts.map((p) => p.x));
     const minY = Math.min(...pts.map((p) => p.y)), maxY = Math.max(...pts.map((p) => p.y));
-    const s = 130 / Math.max(maxX - minX, maxY - minY, 1);
-    const ox = (160 - (maxX - minX) * s) / 2 - minX * s, oy = (160 - (maxY - minY) * s) / 2 - minY * s;
-    x.strokeStyle = "#171717"; x.lineWidth = 3; x.lineCap = "round"; x.lineJoin = "round";
+    const s = 156 / Math.max(maxX - minX, maxY - minY, 1);
+    const ox = (200 - (maxX - minX) * s) / 2 - minX * s, oy = (200 - (maxY - minY) * s) / 2 - minY * s;
+    x.strokeStyle = "#e4e4e7"; x.lineWidth = 3.5; x.lineCap = "round"; x.lineJoin = "round";
     for (const st of state.strokes) {
       x.beginPath();
       st.forEach((p, i) => (i ? x.lineTo(p.x * s + ox, p.y * s + oy) : x.moveTo(p.x * s + ox, p.y * s + oy)));
+      if (st.length === 1) x.lineTo(st[0].x * s + ox + 0.1, st[0].y * s + oy);
       x.stroke();
     }
     return c.toDataURL();
@@ -361,51 +516,58 @@
   }
 
   function showSummary() {
-    show(el.summary);
+    go("results");
     const r = state.results;
     const matched = r.filter((x) => x.matched);
     const rank = RANKS.find((k) => state.score >= k.min);
-    el.finalScore.textContent = state.score;
+    el.finalScore.textContent = fmt(state.score);
+    el.finalScore.classList.remove("pop"); void el.finalScore.offsetWidth; el.finalScore.classList.add("pop");
     el.finalRank.textContent = rank.name;
     el.rankHint.textContent = rank.hint;
     el.statMatched.textContent = `${matched.length}/${ROUNDS}`;
     el.statAvg.textContent = matched.length ? `${(matched.reduce((a, b) => a + b.time, 0) / matched.length).toFixed(1)}s` : "–";
     el.statBest.textContent = matched.length ? `${Math.min(...matched.map((x) => x.time)).toFixed(1)}s` : "–";
     el.roundCards.innerHTML = r.map((x, i) => `
-      <div class="rounded-xl border border-neutral-200 bg-white p-3">
-        <img src="${x.image}" alt="Your ${x.target} sketch" class="w-full rounded-md mb-3" />
-        <div class="flex items-baseline justify-between gap-2">
-          <div class="text-sm font-medium">${label(x.target)}</div>
-          <div class="text-sm tabular-nums ${x.points ? "text-neutral-900" : "text-neutral-400"}">+${x.points}</div>
+      <div class="card p-1.5 enter w-[136px] shrink-0 snap-start sm:w-auto" style="animation-delay:${i * 50}ms">
+        <div class="relative">
+          <img src="${x.image}" alt="Your ${esc(x.target)} sketch" class="w-full aspect-square rounded-lg border border-white/[.05]" />
+          <span class="absolute top-1.5 right-1.5 grid place-items-center w-5 h-5 rounded-full ${x.matched ? "bg-emerald-400 text-zinc-950" : "bg-zinc-800 text-zinc-400"}">
+            <i class="${x.matched ? "ph-fill ph-check" : x.skipped ? "ph ph-skip-forward" : "ph ph-x"} text-[11px]"></i>
+          </span>
         </div>
-        <div class="text-xs mt-0.5 ${x.matched ? "text-emerald-600" : "text-neutral-400"}">
-          ${x.matched ? `${x.time.toFixed(1)}s · ${Math.round(x.confidence * 100)}%` : x.skipped ? "Skipped" : "Not recognized"}
+        <div class="px-1.5 pt-2.5 pb-1.5">
+          <div class="flex items-baseline justify-between gap-2">
+            <div class="text-[13px] font-medium truncate">${label(x.target)}</div>
+            <div class="num text-[13px] ${x.points ? "text-zinc-100" : "text-zinc-600"}">+${fmt(x.points)}</div>
+          </div>
+          <div class="text-[11px] mt-0.5 truncate ${x.matched ? "text-emerald-400" : "text-zinc-500"}">
+            ${x.matched ? `<span class="num">${x.time.toFixed(1)}s · ${Math.round(x.confidence * 100)}%</span>` : x.skipped ? "Skipped" : x.aiGuess ? `AI saw ${esc(x.aiGuess)}` : "Not recognized"}
+          </div>
         </div>
-        ${!x.matched && x.aiGuess ? `<div class="text-xs text-neutral-400">AI saw: ${x.aiGuess}</div>` : ""}
       </div>`).join("");
     if (rank.min > 6000) Sfx.fanfare(); else Sfx.match();
     showOnlineResult();
   }
 
-  // ---------- Player ----------
-  const playerId = localStorage.getItem("sketchx.player") || crypto.randomUUID();
-  localStorage.setItem("sketchx.player", playerId);
-  const nameInput = $("nameInput");
-  nameInput.value = localStorage.getItem("sketchx.name") || "";
-  nameInput.addEventListener("input", () => {
-    localStorage.setItem("sketchx.name", nameInput.value.trim());
-    $("nameHint").textContent = "Shown on leaderboards and in rooms";
-    $("nameHint").classList.remove("text-red-600");
+  // ---------- Leaving a game ----------
+  $("exitBtn").addEventListener("click", () => {
+    const pop = $("exitPop");
+    if (!pop.classList.contains("hidden")) return pop.classList.add("hidden");
+    $("exitText").textContent =
+      mode === "daily" ? `This counts as today's game. Your score so far (${fmt(state.score)}) will be saved.` :
+      mode === "room" ? `You'll leave room ${room ? room.code : ""}.` :
+      "This game won't be saved.";
+    pop.classList.remove("hidden");
   });
-  const playerName = () => nameInput.value.trim().slice(0, 16);
-  function requireName() {
-    if (playerName()) return true;
-    $("nameHint").textContent = "Enter a name first";
-    $("nameHint").classList.add("text-red-600");
-    nameInput.focus();
-    return false;
-  }
+  $("exitStay").addEventListener("click", () => $("exitPop").classList.add("hidden"));
+  $("exitLeave").addEventListener("click", () => {
+    stopGame();
+    if (mode === "room") return leaveRoom();
+    if (mode === "daily") { lockDaily(state.score); return go("daily"); }
+    go("play");
+  });
 
+  // ---------- Online helpers ----------
   async function api(path, body) {
     const res = await fetch(path, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : undefined);
     const data = await res.json().catch(() => ({}));
@@ -413,87 +575,135 @@
     return data;
   }
 
-  // One row of a ranking list.
-  const row = (rank, name, right, { me = false, sub = "" } = {}) => `
-    <li class="flex items-center gap-3 px-4 py-2.5 ${me ? "bg-neutral-50" : ""}">
-      <span class="w-6 text-sm tabular-nums text-neutral-400">${rank}</span>
-      <span class="flex-1 min-w-0 truncate text-sm ${me ? "font-medium" : ""}">${esc(name)}${me ? ' <span class="text-neutral-400 font-normal">(you)</span>' : ""}${sub ? ` <span class="text-xs text-neutral-400">${sub}</span>` : ""}</span>
-      <span class="text-sm tabular-nums">${right}</span>
+  function rankCell(rank) {
+    if (rank === 1) return '<i class="ph-fill ph-crown-simple text-[16px] text-zinc-100"></i>';
+    if (rank === 2) return '<i class="ph-fill ph-medal text-[16px] text-zinc-300"></i>';
+    if (rank === 3) return '<i class="ph-fill ph-medal text-[16px] text-zinc-500"></i>';
+    return `<span class="num text-[13px] text-zinc-500">${rank}</span>`;
+  }
+  // One row of a ranking list. `sub` is trusted HTML built here, `name` is escaped.
+  // plain: show the position as a number (lobby order is not a ranking).
+  const row = (rank, name, right, { me = false, sub = "", plain = false } = {}) => `
+    <li class="flex items-center gap-3 px-4 h-[52px] ${me ? "bg-emerald-400/[.05]" : ""}">
+      <span class="w-6 shrink-0 grid place-items-center">${plain ? `<span class="num text-[13px] text-zinc-500">${rank}</span>` : rankCell(rank)}</span>
+      <span class="avatar ${me ? "!bg-emerald-400/15 !text-emerald-300 !border-emerald-400/20" : ""}">${initial(name)}</span>
+      <span class="flex-1 min-w-0 flex items-center gap-2">
+        <span class="truncate text-sm ${me ? "font-medium" : "text-zinc-200"}">${esc(name)}</span>
+        ${me ? '<span class="shrink-0 text-[11px] font-medium text-emerald-400">you</span>' : ""}
+        ${sub ? `<span class="shrink-0 flex items-center gap-1 text-[12px] text-zinc-500">${sub}</span>` : ""}
+      </span>
+      <span class="num text-sm">${right === "" ? "" : fmt(right)}</span>
     </li>`;
-  const emptyRow = (text) => `<li class="px-4 py-6 text-center text-sm text-neutral-400">${text}</li>`;
+  const emptyRow = (text, icon = "ph-trophy") => `<li class="flex flex-col items-center px-4 py-10 text-center text-[13px] text-zinc-500">
+      <i class="ph ${icon} text-[22px] text-zinc-600 mb-2"></i>${text}</li>`;
+  const loadingRow = () => `<li class="flex items-center justify-center gap-2 px-4 py-10 text-[13px] text-zinc-500">
+      <i class="ph ph-circle-notch animate-spin text-[16px]"></i>Loading…</li>`;
+
+  async function fetchBoard(board, lv) {
+    return api(`/api/scores?board=${board}&level=${lv}&player=${encodeURIComponent(playerId)}`);
+  }
+  function boardRows(data, limit = Infinity) {
+    if (!data.entries.length) return emptyRow(data.board === "daily" ? "No one has played today's challenge yet." : "No scores yet. Be the first!");
+    const shown = data.entries.slice(0, limit);
+    let html = shown.map((e) => row(e.rank, e.name, e.score, { me: e.id === playerId })).join("");
+    if (data.me && data.me.rank > shown.length) html += row(data.me.rank, playerName() || "You", data.me.score, { me: true });
+    return html;
+  }
 
   // ---------- Daily challenge ----------
   const dailyKey = (lv) => `sketchx.daily.${today()}.${lv}`;
-  const levelKey = (lv) => Object.keys(LEVELS).find((k) => LEVELS[k] === lv);
-  function updateDailyButton() {
-    const played = localStorage.getItem(dailyKey(levelKey(level)));
-    $("dailyBtn").textContent = played === null ? "Daily challenge" : `Daily challenge ✓ ${played}`;
+  const dailyPlayed = () => localStorage.getItem(dailyKey(levelKey(level)));
+  function lockDaily(score) {
+    const lv = levelKey(playLevel);
+    if (localStorage.getItem(dailyKey(lv)) !== null) return;
+    localStorage.setItem(dailyKey(lv), score);
+    if (playerName()) api("/api/scores", { board: "daily", level: lv, player: playerId, name: playerName(), score }).catch(() => {});
+    updateDaily();
+  }
+  function updateDaily() {
+    const played = dailyPlayed();
+    $("playDailyStatus").innerHTML = played === null
+      ? `${level.name} · not played yet today`
+      : `<span class="text-emerald-400">Played</span> · you scored <span class="num text-zinc-300">${fmt(played)}</span> on ${level.name}`;
+    $("dailyTodo").classList.toggle("hidden", played !== null);
+    $("dailyDone").classList.toggle("hidden", played === null);
+    if (played !== null) $("dailyScore").textContent = fmt(played);
+    $("dailyTopLevel").textContent = level.name;
+    if (current === "daily") loadDailyTop();
+  }
+  function updateReset() {
+    const now = new Date();
+    const ms = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1) - now;
+    const h = Math.floor(ms / 3.6e6), m = Math.floor((ms % 3.6e6) / 6e4);
+    $("dailyReset").textContent = `New challenge in ${h}h ${m}m`;
+  }
+  setInterval(updateReset, 30000);
+  let dailyReq = 0;
+  async function loadDailyTop() {
+    const req = ++dailyReq, lv = levelKey(level);
+    $("dailyTop").innerHTML = loadingRow();
+    try {
+      const data = await fetchBoard("daily", lv);
+      if (req === dailyReq) $("dailyTop").innerHTML = boardRows(data, 5);
+    } catch (e) {
+      if (req === dailyReq) $("dailyTop").innerHTML = emptyRow(`Couldn't load the leaderboard: ${esc(e.message)}`, "ph-cloud-slash");
+    }
+  }
+  function renderDaily() {
+    $("dailyDate").textContent = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" }) + " · UTC";
+    updateReset();
+    paintGate("daily");
+    updateDaily();
   }
   $("dailyBtn").addEventListener("click", () => {
-    if (localStorage.getItem(dailyKey(levelKey(level))) !== null) return openBoard("daily", levelKey(level));
-    if (!requireName()) return;
+    if (dailyPlayed() !== null) return openBoard("daily", levelKey(level));
+    if (!requireName("daily")) return;
+    if (room) leaveRoom(null, { silent: true });
     startGame({ mode: "daily", prompts: pickPrompts(daySeed(today())) });
   });
 
   // ---------- Leaderboard ----------
   let boardView = { board: "daily", level: "normal" };
   function paintToggles() {
-    for (const b of document.querySelectorAll("[data-board]")) {
-      const on = b.dataset.board === boardView.board;
-      b.classList.toggle("bg-white", on); b.classList.toggle("shadow-sm", on); b.classList.toggle("text-neutral-500", !on);
-    }
-    for (const b of document.querySelectorAll("[data-board-level]")) {
-      const on = b.dataset.boardLevel === boardView.level;
-      b.classList.toggle("bg-white", on); b.classList.toggle("shadow-sm", on); b.classList.toggle("text-neutral-500", !on);
-    }
-  }
-  async function fetchBoard(board, lv) {
-    return api(`/api/scores?board=${board}&level=${lv}&player=${encodeURIComponent(playerId)}`);
-  }
-  function boardRows(data) {
-    if (!data.entries.length) return emptyRow(data.board === "daily" ? "No one has played today's challenge yet." : "No scores yet. Be the first!");
-    let html = data.entries.map((e) => row(e.rank, e.name, e.score, { me: e.id === playerId })).join("");
-    if (data.me && data.me.rank > data.entries.length) html += row(data.me.rank, playerName() || "You", data.me.score, { me: true });
-    return html;
+    for (const b of $$("[data-board]")) b.setAttribute("aria-pressed", b.dataset.board === boardView.board);
+    for (const b of $$("[data-board-level]")) b.setAttribute("aria-pressed", b.dataset.boardLevel === boardView.level);
   }
   async function renderBoard() {
     paintToggles();
     const { board, level: lv } = boardView;
-    $("boardList").innerHTML = emptyRow("Loading…");
-    $("boardNote").textContent = board === "daily"
+    $("boardList").innerHTML = loadingRow();
+    $("boardNote").innerHTML = `<i class="ph ph-info text-[14px]"></i>${board === "daily"
       ? "Same 5 prompts for everyone today (UTC). Only your first game counts."
-      : "Your best solo game counts.";
+      : "Your best solo game counts."}`;
     try {
       const data = await fetchBoard(board, lv);
       if (boardView.board !== board || boardView.level !== lv) return; // a newer tab was picked meanwhile
       $("boardList").innerHTML = boardRows(data);
     } catch (e) {
-      $("boardList").innerHTML = emptyRow(`Couldn't load the leaderboard: ${esc(e.message)}`);
+      $("boardList").innerHTML = emptyRow(`Couldn't load the leaderboard: ${esc(e.message)}`, "ph-cloud-slash");
     }
   }
   function openBoard(board = "daily", lv = levelKey(level)) {
     boardView = { board, level: lv };
-    show(el.boardScr);
+    go("board");
     renderBoard();
   }
-  for (const b of document.querySelectorAll("[data-board]")) b.addEventListener("click", () => { boardView.board = b.dataset.board; renderBoard(); });
-  for (const b of document.querySelectorAll("[data-board-level]")) b.addEventListener("click", () => { boardView.level = b.dataset.boardLevel; renderBoard(); });
-  $("boardBtn").addEventListener("click", () => openBoard());
+  for (const b of $$("[data-board]")) b.addEventListener("click", () => { boardView.board = b.dataset.board; renderBoard(); });
+  for (const b of $$("[data-board-level]")) b.addEventListener("click", () => { boardView.level = b.dataset.boardLevel; renderBoard(); });
 
   // ---------- Rooms ----------
   // room: { code, data (last server state), offset (server clock - local clock), playedGame, poll }
   let room = null;
   const POLL_MS = 1500;
   const isHost = () => room && room.data && room.data.host === playerId;
+  const paintRoomDot = () => { for (const d of $$(".room-dot")) d.classList.toggle("hidden", !room); };
 
-  function openRooms() {
-    if (room) return showLobby();
-    $("roomError").textContent = "";
-    $("roomJoin").classList.remove("hidden");
-    $("roomLobby").classList.add("hidden");
-    show(el.room);
+  function renderFriends(hint) {
+    $("roomJoin").classList.toggle("hidden", !!room);
+    $("roomLobby").classList.toggle("hidden", !room);
+    if (room) { $("lobbyError").textContent = ""; renderRoom(); }
+    else paintGate("friends", hint);
   }
-  $("roomBtn").addEventListener("click", () => { if (requireName()) openRooms(); });
 
   async function enterRoom(action, extra) {
     $("roomError").textContent = "";
@@ -503,32 +713,35 @@
       room = { code: data.code, data, offset: data.serverNow - (t0 + Date.now()) / 2, playedGame: data.game, poll: 0 };
       history.replaceState(null, "", `?room=${data.code}`);
       room.poll = setInterval(pollRoom, POLL_MS);
-      showLobby();
+      paintRoomDot();
+      go("friends");
     } catch (e) {
-      $("roomError").textContent = e.message;
+      $("roomError").innerHTML = `<i class="ph ph-warning-circle text-[15px]"></i>${esc(e.message)}`;
     }
   }
-  $("createRoomBtn").addEventListener("click", () => enterRoom("create", { level: levelKey(level) }));
+  $("createRoomBtn").addEventListener("click", () => { if (requireName("friends")) enterRoom("create", { level: levelKey(level) }); });
   $("joinRoomBtn").addEventListener("click", () => {
+    if (!requireName("friends")) return;
     const code = $("codeInput").value.trim().toUpperCase();
-    if (!/^[A-Z]{4}$/.test(code)) { $("roomError").textContent = "Room codes are 4 letters."; return; }
+    if (!/^[A-Z]{4}$/.test(code)) { $("roomError").innerHTML = '<i class="ph ph-warning-circle text-[15px]"></i>Room codes are 4 letters.'; return; }
     enterRoom("join", { code });
   });
   $("codeInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("joinRoomBtn").click(); });
 
-  function leaveRoom(message) {
+  // silent: leave without changing the view (used when starting a solo or daily game).
+  function leaveRoom(message, { silent = false } = {}) {
     if (!room) return;
     clearInterval(room.poll);
     api("/api/rooms", { action: "leave", code: room.code, player: playerId }).catch(() => {});
     room = null;
+    paintRoomDot();
     history.replaceState(null, "", location.pathname);
-    if (state) { state.active = false; cancelAnimationFrame(state.raf); }
-    clearInterval(countdownTimer);
-    show(el.start);
-    if (message) { openRooms(); $("roomError").textContent = message; }
+    if (silent) return;
+    if (mode === "room") stopGame();
+    go("friends");
+    if (message) $("roomError").innerHTML = `<i class="ph ph-warning-circle text-[15px]"></i>${esc(message)}`;
   }
   $("leaveRoomBtn").addEventListener("click", () => leaveRoom());
-  $("roomPanelLeave").addEventListener("click", () => leaveRoom());
 
   async function pollRoom() {
     if (!room) return;
@@ -547,28 +760,32 @@
   function onRoomData(data) {
     room.data = data;
     if (data.status === "playing" && data.game > room.playedGame) {
-      // The host started a game: everyone begins at the same server time.
+      // The host started a game: everyone begins at the same server time, from whichever view they're on.
       room.playedGame = data.game;
       startGame({ mode: "room", level: LEVELS[data.level], prompts: pickPrompts(data.seed), at: data.startAt - room.offset });
     }
     renderRoom();
   }
 
-  function roomStatus(p) {
+  function roomSub(p) {
     const d = room.data;
-    if (d.status !== "playing" && !p.round) return p.isHost ? "host" : "";
-    return p.done ? "finished" : p.round ? `round ${p.round}/${d.rounds}` : "drawing";
+    if (d.status !== "playing" && !p.round) return p.isHost ? '<i class="ph-fill ph-crown-simple"></i>host' : "";
+    return p.done ? '<i class="ph-fill ph-check-circle text-emerald-400"></i>finished' : p.round ? `round <span class="num">${p.round}/${d.rounds}</span>` : "drawing";
   }
   function roomRows(compact) {
-    const players = room.data.players;
-    return players.map((p, i) => compact
-      ? `<li class="flex items-center gap-2 ${p.id === playerId ? "font-medium" : ""}">
-           <span class="w-4 text-neutral-400 tabular-nums">${i + 1}</span>
-           <span class="flex-1 min-w-0 truncate">${esc(p.name)}</span>
-           <span class="text-xs text-neutral-400">${p.done ? "✓" : `${p.round}/${room.data.rounds}`}</span>
-           <span class="w-12 text-right tabular-nums">${p.score}</span>
-         </li>`
-      : row(i + 1, p.name, room.data.status === "playing" || p.round ? p.score : "", { me: p.id === playerId, sub: roomStatus(p) })).join("");
+    const d = room.data;
+    return d.players.map((p, i) => {
+      const me = p.id === playerId;
+      const scored = d.status === "playing" || p.round;
+      if (!compact) return row(i + 1, p.name, scored ? p.score : "", { me, sub: roomSub(p), plain: !scored });
+      return `<li class="flex items-center gap-2.5 h-10 px-2 rounded-lg ${me ? "bg-white/[.04]" : ""}">
+        <span class="w-4 num text-[12px] text-zinc-500">${i + 1}</span>
+        <span class="avatar !w-6 !h-6 !text-[10px] ${me ? "!bg-emerald-400/15 !text-emerald-300" : ""}">${initial(p.name)}</span>
+        <span class="flex-1 min-w-0 truncate text-[13px] ${me ? "font-medium" : "text-zinc-300"}">${esc(p.name)}</span>
+        <span class="text-[11px] text-zinc-500">${p.done ? '<i class="ph-fill ph-check-circle text-emerald-400 text-[14px]"></i>' : `<span class="num">${p.round}/${d.rounds}</span>`}</span>
+        <span class="w-12 text-right num text-[13px]">${fmt(p.score)}</span>
+      </li>`;
+    }).join("");
   }
 
   function renderRoom() {
@@ -577,27 +794,27 @@
     // Lobby
     $("lobbyCode").textContent = d.code;
     const lv = LEVELS[d.level];
-    $("lobbyLevel").textContent = `${lv.name} · ${lv.time} seconds per drawing · ${d.players.length} player${d.players.length === 1 ? "" : "s"}`;
+    $("lobbyLevel").textContent = `${lv.name} · ${lv.time} seconds per drawing · AI must be ${Math.round(lv.threshold * 100)}% sure`;
+    $("lobbyCount").textContent = `${d.players.length} of 12`;
     $("lobbyPlayers").innerHTML = roomRows(false);
     const running = d.status === "playing" && d.players.some((p) => !p.done);
     $("startRoomBtn").classList.toggle("hidden", !host);
-    $("startRoomBtn").textContent = d.game ? "Start next game" : "Start game";
+    setText($("startRoomBtn"), d.game ? "Start next game" : "Start game");
     $("lobbyWait").classList.toggle("hidden", host);
-    $("lobbyWait").textContent = running ? "A game is in progress…" : "Waiting for the host to start…";
-    // In-game panel
+    $("lobbyWait").lastElementChild.textContent = running ? "A game is in progress…" : "Waiting for the host to start…";
+    // In-game panel, mobile chip and sheet
     $("roomPanelCode").textContent = d.code;
-    $("roomPanelList").innerHTML = roomRows(true);
-    // Summary
-    if (mode === "room" && !el.summary.classList.contains("hidden")) renderRoomSummary();
+    $("roomSheetCode").textContent = d.code;
+    const compact = roomRows(true);
+    $("roomPanelList").innerHTML = compact;
+    $("roomSheetList").innerHTML = compact;
+    const me = d.players.findIndex((p) => p.id === playerId);
+    $("roomChip").innerHTML = `<span class="flex items-center gap-1.5"><i class="ph ph-users-three text-[14px]"></i>#${me + 1}<span class="text-zinc-500">/${d.players.length}</span></span>`;
+    // Results
+    if (mode === "room" && current === "results") renderRoomSummary();
   }
-
-  function showLobby() {
-    $("roomJoin").classList.add("hidden");
-    $("roomLobby").classList.remove("hidden");
-    $("lobbyError").textContent = "";
-    show(el.room);
-    renderRoom();
-  }
+  $("roomChip").addEventListener("click", () => $("roomSheet").classList.remove("hidden"));
+  $("roomSheetBackdrop").addEventListener("click", () => $("roomSheet").classList.add("hidden"));
 
   async function hostStart() {
     $("lobbyError").textContent = "";
@@ -621,10 +838,11 @@
   }
 
   $("copyLinkBtn").addEventListener("click", async () => {
+    const btn = $("copyLinkBtn"), icon = btn.querySelector("i");
     const link = `${location.origin}${location.pathname}?room=${room.code}`;
-    try { await navigator.clipboard.writeText(link); $("copyLinkBtn").textContent = "Copied"; }
-    catch { $("copyLinkBtn").textContent = link; }
-    setTimeout(() => ($("copyLinkBtn").textContent = "Copy invite link"), 2000);
+    try { await navigator.clipboard.writeText(link); setText(btn, "Copied"); icon.className = "ph ph-check text-emerald-400"; }
+    catch { setText(btn, link); }
+    setTimeout(() => { setText(btn, "Copy invite link"); icon.className = "ph ph-link-simple"; }, 2000);
   });
 
   // ---------- Results ----------
@@ -633,6 +851,7 @@
     $("summaryOnlineTitle").textContent = title;
     $("summaryOnlineNote").innerHTML = note;
     $("summaryOnlineList").innerHTML = html;
+    $("summaryOnlineList").classList.toggle("hidden", !html);
   }
 
   function renderRoomSummary() {
@@ -640,7 +859,7 @@
     setOnline(`Room ${d.code}`, waiting ? `${waiting} still drawing…` : "Everyone finished", roomRows(false));
     const host = isHost();
     el.againBtn.classList.toggle("hidden", !host);
-    el.againBtn.textContent = "Start next game";
+    setText(el.againBtn, "Start next game");
     $("summaryWait").classList.toggle("hidden", host);
   }
 
@@ -648,58 +867,77 @@
     $("summaryOnline").classList.add("hidden");
     $("summaryWait").classList.add("hidden");
     el.againBtn.classList.remove("hidden");
-    el.homeBtn.textContent = "Home";
+    setText(el.homeBtn, "Home");
     if (mode === "room") {
-      el.homeBtn.textContent = "Leave room";
+      if (!room) return;
+      setText(el.homeBtn, "Leave room");
       return renderRoomSummary();
     }
     const board = mode === "daily" ? "daily" : "all";
     const lv = levelKey(playLevel);
-    el.againBtn.textContent = mode === "daily" ? "Play solo" : "Play again";
-    if (mode === "daily") { localStorage.setItem(dailyKey(lv), state.score); updateDailyButton(); }
+    setText(el.againBtn, mode === "daily" ? "Play solo" : "Play again");
+    if (mode === "daily") { localStorage.setItem(dailyKey(lv), state.score); updateDaily(); }
     const title = `${board === "daily" ? "Today's challenge" : "All time"} · ${playLevel.name}`;
     if (!playerName()) {
-      setOnline(title, "Add your name on the start screen to join the leaderboard.", "");
+      setOnline(title, "", emptyRow('<button class="name-cta text-zinc-200 underline underline-offset-4 decoration-zinc-600 hover:decoration-zinc-300">Add your name</button> to join the leaderboard.', "ph-user"));
       return;
     }
-    setOnline(title, "Saving…", emptyRow("Loading…"));
+    setOnline(title, "Saving…", loadingRow());
     try {
       const res = await api("/api/scores", { board, level: lv, player: playerId, name: playerName(), score: state.score });
       const data = await fetchBoard(board, lv);
       const note = board === "daily" && !res.counted
         ? `Only your first game today counts · you're #${res.rank}`
-        : `You're #${res.rank}${board === "all" && res.score > state.score ? ` with your best of ${res.score}` : ""}`;
+        : `You're #${res.rank}${board === "all" && res.score > state.score ? ` with your best of ${fmt(res.score)}` : ""}`;
       setOnline(title, esc(note), boardRows(data));
     } catch (e) {
-      setOnline(title, `Couldn't save your score: ${esc(e.message)}`, "");
+      setOnline(title, "", emptyRow(`Couldn't save your score: ${esc(e.message)}`, "ph-cloud-slash"));
     }
   }
 
-  el.homeBtn = $("homeBtn");
   el.againBtn.addEventListener("click", () => {
     if (mode === "room") return hostStart();
     startGame({ mode: "solo" });
   });
-  el.homeBtn.addEventListener("click", () => (mode === "room" ? leaveRoom() : show(el.start)));
-  for (const b of document.querySelectorAll(".backBtn")) b.addEventListener("click", () => (room ? leaveRoom() : show(el.start)));
+  el.homeBtn.addEventListener("click", () => (mode === "room" && room ? leaveRoom() : go("play")));
 
-  // ---------- Buttons ----------
-  el.startBtn.addEventListener("click", () => startGame({ mode: "solo" }));
+  // ---------- Buttons & keys ----------
+  el.startBtn.addEventListener("click", () => {
+    if (room) leaveRoom(null, { silent: true });
+    startGame({ mode: "solo" });
+  });
   el.nextBtn.addEventListener("click", next);
-  el.clearBtn.addEventListener("click", () => { if (!state.active) return; state.strokes = []; redraw(); renderGuesses(null); });
-  el.undoBtn.addEventListener("click", () => { if (!state.active) return; state.strokes.pop(); redraw(); predict(true); });
+  const undo = () => { if (!state || !state.active) return; state.strokes.pop(); redraw(); predict(true); };
+  el.undoBtn.addEventListener("click", undo);
+  el.clearBtn.addEventListener("click", () => { if (!state || !state.active) return; state.strokes = []; redraw(); renderGuesses(null); });
   el.skipBtn.addEventListener("click", () => state && state.active && endRound(false, 0, true));
-  el.muteBtn.addEventListener("click", () => { el.muteBtn.innerHTML = Sfx.toggle() ? ICON_MUTED : ICON_SOUND; });
+
+  const ICON_SOUND = "ph ph-speaker-high", ICON_MUTED = "ph ph-speaker-slash";
+  for (const b of $$(".mute-btn")) {
+    b.addEventListener("click", () => {
+      const muted = Sfx.toggle();
+      for (const m of $$(".mute-btn")) m.querySelector("i").className = muted ? ICON_MUTED : ICON_SOUND;
+    });
+  }
+
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !el.overlay.classList.contains("hidden") && !el.game.classList.contains("hidden")) next();
+    if (e.key === "Escape") return closePopovers();
+    if (current !== "game") return;
+    if (e.key === "Enter" && !el.overlay.classList.contains("hidden") && $("exitPop").classList.contains("hidden")) { e.preventDefault(); next(); }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); }
   });
 
+  // ---------- Start ----------
+  paintName();
   setLevel(levelKey(level));
-  // Invite links: ?room=ABCD opens the room screen with the code filled in.
+  go("play");
+  // Invite links: ?room=ABCD opens Friends with the code filled in.
   const invited = new URLSearchParams(location.search).get("room");
   if (invited && /^[A-Za-z]{4}$/.test(invited) && cnn) {
-    $("codeInput").value = invited.toUpperCase();
-    if (playerName()) { openRooms(); enterRoom("join", { code: invited.toUpperCase() }); }
-    else { $("nameHint").textContent = `Enter a name to join room ${invited.toUpperCase()}`; $("roomBtn").textContent = `Join room ${invited.toUpperCase()}`; }
+    const code = invited.toUpperCase();
+    $("codeInput").value = code;
+    go("friends");
+    if (playerName()) enterRoom("join", { code });
+    else renderFriends(`Enter a name to join room ${code}`);
   }
 })();
