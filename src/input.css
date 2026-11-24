@@ -114,7 +114,7 @@
 
 @layer components {
   .level-card {
-    @apply relative text-left p-3.5 rounded-xl border border-white/[.07] bg-white/[.02] transition duration-150
+    @apply relative text-center px-3 py-4 rounded-xl border border-white/[.07] bg-white/[.02] transition duration-150
       hover:border-white/[.12] hover:bg-white/[.04]
       aria-pressed:border-zinc-300/40 aria-pressed:bg-white/[.06] aria-pressed:shadow-[0_0_0_3px_rgb(255_255_255/.04)];
   }

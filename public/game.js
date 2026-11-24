@@ -161,11 +161,9 @@
     const lv = LEVELS[card.dataset.level];
     card.classList.add("group");
     card.innerHTML = `
-      <div class="flex items-center justify-between mb-3">
-        <span class="text-sm font-medium">${lv.name}</span>
-        <i class="ph-fill ph-check-circle text-[16px] text-zinc-100 opacity-0 scale-75 transition group-aria-pressed:opacity-100 group-aria-pressed:scale-100"></i>
-      </div>
-      <div class="flex items-center gap-3 text-[12px] text-zinc-500">
+      <i class="ph-fill ph-check-circle absolute top-2.5 right-2.5 text-[15px] text-zinc-100 opacity-0 scale-75 transition group-aria-pressed:opacity-100 group-aria-pressed:scale-100"></i>
+      <div class="text-sm font-medium mb-2.5">${lv.name}</div>
+      <div class="flex items-center justify-center gap-3 text-[12px] text-zinc-500">
         <span class="flex items-center gap-1"><i class="ph ph-timer"></i><span class="num">${lv.time}s</span></span>
         <span class="flex items-center gap-1"><i class="ph ph-target"></i><span class="num">${Math.round(lv.threshold * 100)}%</span></span>
       </div>`;

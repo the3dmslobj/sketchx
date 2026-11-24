@@ -61,91 +61,89 @@
 
         <!-- ---------- Play ---------- -->
         <section id="viewPlay" data-view="play" class="hidden">
-          <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-10 lg:gap-14">
-            <div>
-              <div id="modelInfo" class="inline-flex items-center gap-2 h-7 pl-2 pr-3 rounded-full border border-white/[.07] bg-white/[.03] text-[12px] text-zinc-400 mb-7">
-                <span class="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>Loading model…
+          <div class="max-w-[640px] mx-auto text-center">
+            <div id="modelInfo" class="inline-flex items-center gap-2 h-7 pl-2 pr-3 rounded-full border border-white/[.07] bg-white/[.03] text-[12px] text-zinc-400 mb-7">
+              <span class="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>Loading model…
+            </div>
+            <h1 class="text-[40px] sm:text-[60px] leading-[1.02] font-semibold tracking-[-0.035em] mb-5">Draw it.<br /><span class="text-zinc-500">Let the AI guess.</span></h1>
+            <p class="max-w-[440px] mx-auto text-[15px] leading-relaxed text-zinc-400 mb-10">Five prompts against the clock. A neural network watches every stroke and calls it the moment it's sure.</p>
+
+            <div class="max-w-[520px] mx-auto space-y-7">
+              <div>
+                <label for="nameInput" class="label">Your name</label>
+                <div class="relative max-w-[280px] mx-auto">
+                  <i class="ph ph-user absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-[16px] pointer-events-none"></i>
+                  <input id="nameInput" class="name-field input pl-9 pr-9 text-center" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Shown on leaderboards" />
+                </div>
               </div>
-              <h1 class="text-[40px] sm:text-[56px] leading-[1.02] font-semibold tracking-[-0.035em] mb-5">Draw it.<br /><span class="text-zinc-500">Let the AI guess.</span></h1>
-              <p class="max-w-[440px] text-[15px] leading-relaxed text-zinc-400 mb-10">Five prompts against the clock. A neural network watches every stroke and calls it the moment it's sure.</p>
 
-              <div class="max-w-[520px] space-y-7">
-                <div>
-                  <label for="nameInput" class="label">Your name</label>
-                  <div class="relative max-w-[280px]">
-                    <i class="ph ph-user absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-[16px] pointer-events-none"></i>
-                    <input id="nameInput" class="name-field input pl-9" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Shown on leaderboards" />
-                  </div>
+              <div>
+                <div class="label">Difficulty</div>
+                <div role="group" aria-label="Difficulty" class="grid grid-cols-3 gap-2">
+                  <button data-level="easy" class="level-card"></button>
+                  <button data-level="normal" class="level-card"></button>
+                  <button data-level="hard" class="level-card"></button>
                 </div>
+              </div>
 
-                <div>
-                  <div class="label">Difficulty</div>
-                  <div role="group" aria-label="Difficulty" class="grid grid-cols-3 gap-2">
-                    <button data-level="easy" class="level-card"></button>
-                    <button data-level="normal" class="level-card"></button>
-                    <button data-level="hard" class="level-card"></button>
-                  </div>
-                </div>
-
-                <div class="flex flex-wrap items-center gap-2 pt-1">
-                  <button id="startBtn" class="btn btn-primary btn-lg" disabled><i class="ph-fill ph-play"></i><span>Loading model…</span></button>
-                  <button data-nav="friends" class="btn btn-secondary btn-lg"><i class="ph ph-users-three"></i>Play with friends</button>
-                </div>
+              <div class="flex flex-wrap items-center justify-center gap-2 pt-1">
+                <button id="startBtn" class="btn btn-primary btn-lg" disabled><i class="ph-fill ph-play"></i><span>Loading model…</span></button>
+                <button data-nav="friends" class="btn btn-secondary btn-lg"><i class="ph ph-users-three"></i>Play with friends</button>
               </div>
             </div>
+          </div>
 
-            <aside class="space-y-4 lg:pt-[52px]">
-              <button data-nav="daily" class="card w-full text-left p-5 group hover:border-white/[.12] hover:bg-zinc-900/70 transition">
-                <div class="flex items-start justify-between mb-6">
-                  <span class="grid place-items-center w-9 h-9 rounded-lg bg-white/[.05] border border-white/[.06] text-zinc-300"><i class="ph ph-calendar-dots text-[18px]"></i></span>
-                  <i class="ph ph-arrow-up-right text-zinc-600 group-hover:text-zinc-300 transition"></i>
-                </div>
+          <div class="max-w-[880px] mx-auto grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-4 mt-16">
+            <button data-nav="daily" class="card w-full text-left p-5 group flex flex-col hover:border-white/[.12] hover:bg-zinc-900/70 transition">
+              <div class="flex items-start justify-between mb-6">
+                <span class="grid place-items-center w-9 h-9 rounded-lg bg-white/[.05] border border-white/[.06] text-zinc-300"><i class="ph ph-calendar-dots text-[18px]"></i></span>
+                <i class="ph ph-arrow-up-right text-zinc-600 group-hover:text-zinc-300 transition"></i>
+              </div>
+              <div class="mt-auto">
                 <div class="text-[15px] font-medium mb-1">Daily challenge</div>
                 <div id="playDailyStatus" class="text-[13px] text-zinc-500">Same five prompts for everyone today</div>
-              </button>
-
-              <div class="card p-5">
-                <div class="eyebrow mb-4">How it works</div>
-                <ol class="space-y-4">
-                  <li class="flex gap-3"><i class="ph ph-shuffle text-[18px] text-zinc-400 mt-px"></i><div><div class="text-sm font-medium">Get a prompt</div><div class="text-[13px] text-zinc-500">One of 150 everyday objects</div></div></li>
-                  <li class="flex gap-3"><i class="ph ph-pencil-simple-line text-[18px] text-zinc-400 mt-px"></i><div><div class="text-sm font-medium">Sketch it</div><div class="text-[13px] text-zinc-500">15–25 seconds, depending on level</div></div></li>
-                  <li class="flex gap-3"><i class="ph ph-sparkle text-[18px] text-zinc-400 mt-px"></i><div><div class="text-sm font-medium">The AI guesses live</div><div class="text-[13px] text-zinc-500">Top three, updated as you draw</div></div></li>
-                  <li class="flex gap-3"><i class="ph ph-lightning text-[18px] text-zinc-400 mt-px"></i><div><div class="text-sm font-medium">Score</div><div class="text-[13px] text-zinc-500">500 per match, plus a speed bonus</div></div></li>
-                </ol>
               </div>
-            </aside>
+            </button>
+
+            <div class="card p-5">
+              <div class="eyebrow mb-4">How it works</div>
+              <ol class="grid grid-cols-2 gap-x-5 gap-y-4">
+                <li class="flex gap-3"><i class="ph ph-shuffle text-[18px] text-zinc-400 mt-px"></i><div><div class="text-sm font-medium">Get a prompt</div><div class="text-[13px] text-zinc-500">One of 150 objects</div></div></li>
+                <li class="flex gap-3"><i class="ph ph-pencil-simple-line text-[18px] text-zinc-400 mt-px"></i><div><div class="text-sm font-medium">Sketch it</div><div class="text-[13px] text-zinc-500">15–25 seconds</div></div></li>
+                <li class="flex gap-3"><i class="ph ph-sparkle text-[18px] text-zinc-400 mt-px"></i><div><div class="text-sm font-medium">AI guesses live</div><div class="text-[13px] text-zinc-500">Top three as you draw</div></div></li>
+                <li class="flex gap-3"><i class="ph ph-lightning text-[18px] text-zinc-400 mt-px"></i><div><div class="text-sm font-medium">Score</div><div class="text-[13px] text-zinc-500">500 + speed bonus</div></div></li>
+              </ol>
+            </div>
           </div>
-          <p class="text-[12px] text-zinc-600 mt-16">Trained on Google's Quick, Draw! dataset · the AI runs entirely in your browser</p>
+          <p class="text-center text-[12px] text-zinc-600 mt-12">Trained on Google's Quick, Draw! dataset · the AI runs entirely in your browser</p>
         </section>
 
         <!-- ---------- Daily ---------- -->
-        <section id="viewDaily" data-view="daily" class="hidden max-w-[640px]">
-          <div id="dailyDate" class="eyebrow mb-3"></div>
-          <h2 class="text-[32px] sm:text-[40px] leading-tight font-semibold tracking-[-0.03em] mb-3">Daily challenge</h2>
-          <p class="text-[15px] text-zinc-400 mb-8">The same five prompts for everyone today. Only your first game counts.</p>
+        <section id="viewDaily" data-view="daily" class="hidden max-w-[600px] mx-auto">
+          <header class="text-center mb-8">
+            <div id="dailyDate" class="eyebrow mb-3"></div>
+            <h2 class="text-[32px] sm:text-[40px] leading-tight font-semibold tracking-[-0.03em] mb-3">Daily challenge</h2>
+            <p class="text-[15px] text-zinc-400">The same five prompts for everyone today. Only your first game counts.</p>
+          </header>
 
-          <div class="card p-5 sm:p-6 mb-4">
-            <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-              <div role="group" aria-label="Difficulty" class="seg">
-                <button data-level="easy">Easy</button><button data-level="normal">Normal</button><button data-level="hard">Hard</button>
-              </div>
-              <div class="flex items-center gap-1.5 text-[12px] text-zinc-500"><i class="ph ph-clock-countdown text-[14px]"></i><span id="dailyReset"></span></div>
+          <div class="card px-5 py-7 sm:px-8 sm:py-8 mb-8 flex flex-col items-center text-center">
+            <div role="group" aria-label="Difficulty" class="seg mb-7">
+              <button data-level="easy">Easy</button><button data-level="normal">Normal</button><button data-level="hard">Hard</button>
             </div>
-            <div class="name-gate hidden mb-5">
+            <div class="name-gate hidden w-full max-w-[280px] mb-6">
               <label class="label" for="dailyName">Your name</label>
-              <input id="dailyName" class="name-field input max-w-[280px]" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Needed for the leaderboard" />
+              <input id="dailyName" class="name-field input text-center" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Needed for the leaderboard" />
               <p class="name-hint text-[12px] text-zinc-500 mt-2">Enter a name to play today's challenge</p>
             </div>
             <div id="dailyTodo">
               <button id="dailyBtn" class="btn btn-primary btn-lg" disabled><i class="ph-fill ph-play"></i>Start today's challenge</button>
             </div>
             <div id="dailyDone" class="hidden">
-              <div class="eyebrow mb-1">Your score today</div>
-              <div class="flex items-end justify-between gap-4">
-                <div id="dailyScore" class="num text-[44px] leading-none font-semibold">0</div>
-                <button data-nav="board" data-board-target="daily" class="btn btn-secondary btn-sm"><i class="ph ph-trophy"></i>Full leaderboard</button>
-              </div>
+              <div class="eyebrow mb-2">Your score today</div>
+              <div id="dailyScore" class="num text-[52px] leading-none font-semibold tracking-[-0.03em] mb-5">0</div>
+              <button data-nav="board" data-board-target="daily" class="btn btn-secondary btn-sm"><i class="ph ph-trophy"></i>Full leaderboard</button>
             </div>
+            <div class="flex items-center gap-1.5 text-[12px] text-zinc-500 mt-6"><i class="ph ph-clock-countdown text-[14px]"></i><span id="dailyReset"></span></div>
           </div>
 
           <div class="flex items-baseline justify-between mb-2.5 px-1">
@@ -156,29 +154,31 @@
         </section>
 
         <!-- ---------- Friends ---------- -->
-        <section id="viewFriends" data-view="friends" class="hidden max-w-[760px]">
+        <section id="viewFriends" data-view="friends" class="hidden max-w-[720px] mx-auto">
           <div id="roomJoin">
-            <h2 class="text-[32px] sm:text-[40px] leading-tight font-semibold tracking-[-0.03em] mb-3">Play with friends</h2>
-            <p class="text-[15px] text-zinc-400 mb-8">Everyone draws the same prompts at the same time, with a live ranking. Up to 12 players.</p>
+            <header class="text-center mb-8">
+              <h2 class="text-[32px] sm:text-[40px] leading-tight font-semibold tracking-[-0.03em] mb-3">Play with friends</h2>
+              <p class="max-w-[460px] mx-auto text-[15px] text-zinc-400">Everyone draws the same prompts at the same time, with a live ranking. Up to 12 players.</p>
+            </header>
 
-            <div class="name-gate hidden card p-5 mb-4">
+            <div class="name-gate hidden max-w-[280px] mx-auto text-center mb-6">
               <label class="label" for="friendsName">Your name</label>
-              <input id="friendsName" class="name-field input max-w-[280px]" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Shown to other players" />
+              <input id="friendsName" class="name-field input text-center" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Shown to other players" />
               <p class="name-hint text-[12px] text-zinc-500 mt-2">Enter a name to create or join a room</p>
             </div>
 
             <div class="grid sm:grid-cols-2 gap-4">
-              <div class="card p-5 sm:p-6 flex flex-col">
-                <span class="grid place-items-center w-9 h-9 rounded-lg bg-white/[.05] border border-white/[.06] text-zinc-300 mb-5"><i class="ph ph-plus text-[18px]"></i></span>
+              <div class="card p-6 flex flex-col items-center text-center">
+                <span class="grid place-items-center w-10 h-10 rounded-xl bg-white/[.05] border border-white/[.06] text-zinc-300 mb-5"><i class="ph ph-plus text-[18px]"></i></span>
                 <div class="text-[15px] font-medium mb-1">Create a room</div>
                 <div class="text-[13px] text-zinc-500 mb-5">You'll get a code to share.</div>
-                <div role="group" aria-label="Difficulty" class="seg self-start mb-5">
+                <div role="group" aria-label="Difficulty" class="seg mb-5">
                   <button data-level="easy">Easy</button><button data-level="normal">Normal</button><button data-level="hard">Hard</button>
                 </div>
-                <button id="createRoomBtn" class="btn btn-primary mt-auto self-start">Create room<i class="ph ph-arrow-right"></i></button>
+                <button id="createRoomBtn" class="btn btn-primary mt-auto">Create room<i class="ph ph-arrow-right"></i></button>
               </div>
-              <div class="card p-5 sm:p-6 flex flex-col">
-                <span class="grid place-items-center w-9 h-9 rounded-lg bg-white/[.05] border border-white/[.06] text-zinc-300 mb-5"><i class="ph ph-sign-in text-[18px]"></i></span>
+              <div class="card p-6 flex flex-col items-center text-center">
+                <span class="grid place-items-center w-10 h-10 rounded-xl bg-white/[.05] border border-white/[.06] text-zinc-300 mb-5"><i class="ph ph-sign-in text-[18px]"></i></span>
                 <label for="codeInput" class="text-[15px] font-medium mb-1">Join with a code</label>
                 <div class="text-[13px] text-zinc-500 mb-5">Ask the host for the 4-letter code.</div>
                 <div class="flex gap-2 mt-auto">
@@ -187,36 +187,36 @@
                 </div>
               </div>
             </div>
-            <p id="roomError" class="flex items-center gap-1.5 text-[13px] text-red-400 mt-4 min-h-[20px]"></p>
+            <p id="roomError" class="flex items-center justify-center gap-1.5 text-[13px] text-red-400 mt-4 min-h-[20px]"></p>
           </div>
 
-          <div id="roomLobby" class="hidden">
-            <div class="eyebrow mb-3">Room code</div>
-            <div class="flex flex-wrap items-center gap-4 mb-2">
-              <div id="lobbyCode" class="mono text-[56px] sm:text-[64px] leading-none font-semibold tracking-[.12em]">ABCD</div>
+          <div id="roomLobby" class="hidden max-w-[560px] mx-auto">
+            <header class="flex flex-col items-center text-center mb-8">
+              <div class="eyebrow mb-3">Room code</div>
+              <div id="lobbyCode" class="mono text-[56px] sm:text-[72px] leading-none font-semibold tracking-[.14em] pl-[.14em] mb-4">ABCD</div>
+              <div id="lobbyLevel" class="text-[13px] text-zinc-500 mb-5"></div>
               <button id="copyLinkBtn" class="btn btn-secondary btn-sm"><i class="ph ph-link-simple"></i><span>Copy invite link</span></button>
-            </div>
-            <div id="lobbyLevel" class="text-[13px] text-zinc-500 mb-8"></div>
+            </header>
 
             <div class="flex items-baseline justify-between mb-2.5 px-1">
               <div class="text-sm font-medium">Players</div>
               <div id="lobbyCount" class="text-[12px] text-zinc-500"></div>
             </div>
-            <ol id="lobbyPlayers" class="list mb-6"></ol>
+            <ol id="lobbyPlayers" class="list mb-8"></ol>
 
-            <div class="flex flex-wrap items-center gap-3">
+            <div class="flex flex-col items-center gap-3">
               <button id="startRoomBtn" class="btn btn-primary btn-lg"><i class="ph-fill ph-play"></i><span>Start game</span></button>
               <p id="lobbyWait" class="flex items-center gap-2 text-[13px] text-zinc-400"><span class="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-pulse"></span><span>Waiting for the host to start…</span></p>
-              <button id="leaveRoomBtn" class="btn btn-ghost ml-auto"><i class="ph ph-sign-out"></i>Leave room</button>
+              <button id="leaveRoomBtn" class="btn btn-ghost btn-sm"><i class="ph ph-sign-out"></i>Leave room</button>
             </div>
-            <p id="lobbyError" class="text-[13px] text-red-400 mt-3 min-h-[20px]"></p>
+            <p id="lobbyError" class="text-center text-[13px] text-red-400 mt-3 min-h-[20px]"></p>
           </div>
         </section>
 
         <!-- ---------- Leaderboard ---------- -->
-        <section id="viewBoard" data-view="board" class="hidden max-w-[640px]">
-          <h2 class="text-[32px] sm:text-[40px] leading-tight font-semibold tracking-[-0.03em] mb-6">Leaderboard</h2>
-          <div class="flex flex-wrap gap-2 mb-5">
+        <section id="viewBoard" data-view="board" class="hidden max-w-[600px] mx-auto">
+          <h2 class="text-center text-[32px] sm:text-[40px] leading-tight font-semibold tracking-[-0.03em] mb-6">Leaderboard</h2>
+          <div class="flex flex-wrap justify-center gap-2 mb-6">
             <div role="group" aria-label="Board" class="seg">
               <button data-board="daily">Today</button>
               <button data-board="all">All time</button>
@@ -228,40 +228,38 @@
             </div>
           </div>
           <ol id="boardList" class="list"></ol>
-          <p id="boardNote" class="flex items-center gap-1.5 text-[12px] text-zinc-500 mt-3 px-1"></p>
+          <p id="boardNote" class="flex items-center justify-center gap-1.5 text-[12px] text-zinc-500 mt-3 px-1"></p>
         </section>
 
         <!-- ---------- Results ---------- -->
-        <section id="viewResults" data-view="results" class="hidden">
-          <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-10 lg:gap-12">
-            <div>
-              <div id="summaryLevel" class="eyebrow mb-3">Final score</div>
-              <div id="finalScore" class="num text-[72px] sm:text-[88px] leading-[.9] font-semibold tracking-[-0.04em] mb-5 pop">0</div>
-              <div class="flex items-center gap-2 text-[17px] font-medium mb-1"><i class="ph-fill ph-medal text-zinc-400"></i><span id="finalRank"></span></div>
-              <p id="rankHint" class="text-sm text-zinc-500 max-w-[440px] mb-8"></p>
+        <section id="viewResults" data-view="results" class="hidden max-w-[720px] mx-auto">
+          <header class="flex flex-col items-center text-center mb-8">
+            <div id="summaryLevel" class="eyebrow mb-3">Final score</div>
+            <div id="finalScore" class="num text-[76px] sm:text-[96px] leading-[.9] font-semibold tracking-[-0.04em] mb-5 pop">0</div>
+            <div class="flex items-center gap-2 text-[17px] font-medium mb-1"><i class="ph-fill ph-medal text-zinc-400"></i><span id="finalRank"></span></div>
+            <p id="rankHint" class="text-sm text-zinc-500 max-w-[420px]"></p>
+          </header>
 
-              <div class="grid grid-cols-3 gap-2 mb-8">
-                <div class="card px-4 py-3.5"><div class="eyebrow mb-1.5">Recognized</div><div id="statMatched" class="num text-xl font-medium">0/5</div></div>
-                <div class="card px-4 py-3.5"><div class="eyebrow mb-1.5">Avg. time</div><div id="statAvg" class="num text-xl font-medium">–</div></div>
-                <div class="card px-4 py-3.5"><div class="eyebrow mb-1.5">Fastest</div><div id="statBest" class="num text-xl font-medium">–</div></div>
-              </div>
+          <div class="grid grid-cols-3 gap-2 max-w-[480px] mx-auto mb-8 text-center">
+            <div class="card px-3 py-3.5"><div class="eyebrow mb-1.5">Recognized</div><div id="statMatched" class="num text-xl font-medium">0/5</div></div>
+            <div class="card px-3 py-3.5"><div class="eyebrow mb-1.5">Avg. time</div><div id="statAvg" class="num text-xl font-medium">–</div></div>
+            <div class="card px-3 py-3.5"><div class="eyebrow mb-1.5">Fastest</div><div id="statBest" class="num text-xl font-medium">–</div></div>
+          </div>
 
-              <div id="roundCards" class="flex sm:grid sm:grid-cols-5 gap-2 mb-8 overflow-x-auto snap-x scroll-px-5 -mx-5 px-5 sm:mx-0 sm:px-0 sm:overflow-visible"></div>
+          <div id="roundCards" class="flex sm:grid sm:grid-cols-5 gap-2 mb-8 overflow-x-auto snap-x scroll-px-5 -mx-5 px-5 sm:mx-0 sm:px-0 sm:overflow-visible"></div>
 
-              <div class="flex flex-wrap items-center gap-2">
-                <button id="againBtn" class="btn btn-primary btn-lg"><i class="ph ph-arrow-counter-clockwise"></i><span>Play again</span></button>
-                <button id="homeBtn" class="btn btn-secondary btn-lg"><span>Home</span></button>
-              </div>
-              <p id="summaryWait" class="hidden flex items-center gap-2 text-[13px] text-zinc-400 mt-4"><span class="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-pulse"></span>Waiting for the host to start the next game…</p>
+          <div class="flex flex-wrap items-center justify-center gap-2">
+            <button id="againBtn" class="btn btn-primary btn-lg"><i class="ph ph-arrow-counter-clockwise"></i><span>Play again</span></button>
+            <button id="homeBtn" class="btn btn-secondary btn-lg"><span>Home</span></button>
+          </div>
+          <p id="summaryWait" class="hidden flex items-center justify-center gap-2 text-[13px] text-zinc-400 mt-4"><span class="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-pulse"></span>Waiting for the host to start the next game…</p>
+
+          <div id="summaryOnline" class="hidden max-w-[560px] mx-auto mt-12">
+            <div class="flex items-baseline justify-between gap-3 mb-2.5 px-1">
+              <div id="summaryOnlineTitle" class="text-sm font-medium"></div>
+              <div id="summaryOnlineNote" class="text-[12px] text-zinc-500 text-right"></div>
             </div>
-
-            <aside id="summaryOnline" class="hidden lg:pt-[30px]">
-              <div class="flex items-baseline justify-between gap-3 mb-2.5 px-1">
-                <div id="summaryOnlineTitle" class="text-sm font-medium"></div>
-                <div id="summaryOnlineNote" class="text-[12px] text-zinc-500 text-right"></div>
-              </div>
-              <ol id="summaryOnlineList" class="list"></ol>
-            </aside>
+            <ol id="summaryOnlineList" class="list"></ol>
           </div>
         </section>
 
