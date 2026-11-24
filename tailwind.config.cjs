@@ -3,7 +3,13 @@ module.exports = {
   content: ["./public/**/*.{html,js}"],
   theme: {
     extend: {
-      fontFamily: { sans: ['"Inter"', "system-ui", "sans-serif"] },
+      fontFamily: {
+        sans: ['"Geist"', "system-ui", "sans-serif"],
+        mono: ['"Geist Mono"', "ui-monospace", "monospace"],
+      },
+      colors: {
+        ink: { 950: "#09090b" },
+      },
     },
   },
 };
