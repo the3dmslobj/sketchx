@@ -6,6 +6,9 @@
   html { color-scheme: dark; -webkit-tap-highlight-color: transparent; }
   body { @apply bg-ink-950 text-zinc-100 font-sans antialiased; font-feature-settings: "ss01", "cv11"; }
   ::selection { @apply bg-zinc-100 text-zinc-950; }
+  /* Scrolling still works everywhere; the bars are just hidden. */
+  * { scrollbar-width: none; -ms-overflow-style: none; }
+  *::-webkit-scrollbar { display: none; }
   :focus-visible { @apply outline-none ring-2 ring-zinc-100/70 ring-offset-2 ring-offset-ink-950; }
   .ph, .ph-fill { line-height: 1; }
 }
