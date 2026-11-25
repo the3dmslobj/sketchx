@@ -96,6 +96,64 @@ clock. Ranks:
 When the game ends, you get a summary of every round: your sketch, the time it took,
 the AI's confidence (or its best wrong guess), and your points.
 
+## About the AI
+
+The AI opponent is a small image classifier that we trained ourselves and ship with the
+game. It runs entirely in the player's browser: no drawing is sent to a server, there are
+no API keys or paid AI services, and the game works offline once loaded.
+
+**The model.** A convolutional neural network with three convolution blocks followed by
+two fully connected layers:
+
+| Layer | Output |
+| --- | --- |
+| Input: 28×28 grayscale sketch | 1 × 28 × 28 |
+| 3×3 conv (48 filters) → ReLU → 2×2 max-pool | 48 × 14 × 14 |
+| 3×3 conv (96 filters) → ReLU → 2×2 max-pool | 96 × 7 × 7 |
+| 3×3 conv (192 filters) → ReLU → 2×2 max-pool | 192 × 3 × 3 |
+| Dense (256) → ReLU, dropout 0.3 while training | 256 |
+| Dense (150) → softmax | one probability per object |
+
+That is about 690,000 weights. Early layers pick up strokes and corners, later ones whole
+shapes such as wheels, ears or petals.
+
+**The data.** Google's [Quick, Draw!](https://quickdraw.withgoogle.com/data) dataset:
+millions of doodles that people drew in under 20 seconds, which is the same kind of
+quick, rough sketch players make in sketchX. We use the first 10,000 drawings of each of
+the 150 categories (1.5 million images) and hold back 5% to measure accuracy.
+
+**Training** (`training/train.py`, PyTorch):
+
+- Every bitmap is re-centred on its bounding box, the same way the browser prepares the
+  player's drawing, so training and play see the same kind of input.
+- Each batch is randomly rotated (up to ±12°), scaled (85 to 115%) and shifted a little,
+  so the model copes with drawings that are tilted, small or off-centre.
+- AdamW optimizer with a one-cycle learning rate schedule, 8 epochs, and label smoothing
+  (0.05) so the model is less sure of itself on ambiguous doodles.
+- The current model reaches **80.4% top-1 accuracy** on the held-out drawings (shown on
+  the start screen).
+
+**Shipping it to the browser.** After training, each BatchNorm layer is folded into the
+convolution before it, so the browser only runs conv → ReLU. The weights are stored as
+float16 and base64-encoded in `public/model.js` (about 1.8 MB), which `public/cnn.js`
+expands back to float32. `cnn.js` is a hand-written inference engine of about 160 lines
+with no libraries (no TensorFlow.js or ONNX); it lays each convolution out as long
+contiguous multiply-adds (im2col), which plain JavaScript runs quickly.
+
+**How the game uses it.** While you draw, the sketch is rasterized to 28×28 and classified
+up to 5 times a second, and again whenever you lift the pen or undo. The top 3 guesses
+are shown live and a sound plays whenever the top guess changes. A round is won when the
+prompt is the top guess, above the level's confidence threshold, for the level's hold
+time. Hard mode also divides the model's scores by a temperature of 1.2 before softmax,
+which stops a single bare shape (a lone arc reading as "rainbow 99%") from winning too
+easily.
+
+**Limits.** The model only knows the 150 objects in `CLASSES`, so anything else gets
+forced into its closest match. It sees a still image, not stroke order or timing, and
+it learned from Quick, Draw! players' habits, so an unusual but correct drawing can be
+missed. A few categories it rarely recognizes are kept out of the prompts (see
+Difficulty).
+
 ## Styling
 
 After changing classes in `public/index.html` or `public/game.js`, rebuild the CSS:
